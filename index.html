@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LGS Takip</title>
+<meta name="description" content="Oğlumun LGS hazırlığı için ödev ve deneme takip paneli">
+<style>
+  :root{
+    --bg:#f3f5fb; --surface:#ffffff; --surface-2:#f7f9ff; --line:#e4e8f3;
+    --ink:#1b2440; --ink-2:#5b6686; --ink-3:#8b93ad;
+    --brand:#4f46e5; --brand-ink:#ffffff; --brand-soft:#ecebfd;
+    --ok:#16a34a; --ok-soft:#e3f7ea; --warn:#d97706; --warn-soft:#fdf0db;
+    --bad:#dc2626; --bad-soft:#fdeaea; --info:#0ea5e9;
+    --shadow:0 1px 2px rgba(27,36,64,.06),0 8px 24px rgba(27,36,64,.07);
+    --r:16px; --r-sm:11px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1222; --surface:#171c30; --surface-2:#1e243c; --line:#2a3150;
+      --ink:#eef1fb; --ink-2:#aab3d1; --ink-3:#7b84a4;
+      --brand:#8b84ff; --brand-ink:#141425; --brand-soft:#241f49;
+      --ok:#4ade80; --ok-soft:#14321f; --warn:#fbbf24; --warn-soft:#3a2c0e;
+      --bad:#f87171; --bad-soft:#3a1618; --info:#38bdf8;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+      --bg:#0e1222; --surface:#171c30; --surface-2:#1e243c; --line:#2a3150;
+      --ink:#eef1fb; --ink-2:#aab3d1; --ink-3:#7b84a4;
+      --brand:#8b84ff; --brand-ink:#141425; --brand-soft:#241f49;
+      --ok:#4ade80; --ok-soft:#14321f; --warn:#fbbf24; --warn-soft:#3a2c0e;
+      --bad:#f87171; --bad-soft:#3a1618; --info:#38bdf8;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.45}
+  a{color:var(--brand)}
+  .wrap{max-width:760px;margin:0 auto;padding:0 16px 120px}
+  header.top{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .top-in{max-width:760px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px}
+  .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--brand),#7c74ff);display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px;flex:none}
+  .top h1{font-size:17px;margin:0;font-weight:750;letter-spacing:-.2px}
+  .top .sub{font-size:12px;color:var(--ink-3);margin-top:1px}
+  .spacer{flex:1}
+  .icon-btn{width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);display:grid;place-items:center;cursor:pointer;font-size:16px}
+  .icon-btn:active{transform:scale(.95)}
+
+  h2.sec{font-size:13px;letter-spacing:.3px;text-transform:uppercase;color:var(--ink-3);margin:22px 4px 10px;font-weight:700}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+  .pad{padding:16px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--shadow)}
+  .stat .n{font-size:26px;font-weight:800;letter-spacing:-.5px;line-height:1}
+  .stat .l{font-size:12px;color:var(--ink-3);margin-top:6px;font-weight:600}
+  .muted{color:var(--ink-3)}
+  .row{display:flex;align-items:center;gap:10px}
+  .btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:11px 15px;border-radius:12px;font-size:14.5px;font-weight:650;cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+  .btn:active{transform:scale(.98)}
+  .btn.brand{background:var(--brand);color:var(--brand-ink);border-color:transparent}
+  .btn.ghost{background:transparent}
+  .btn.sm{padding:7px 11px;font-size:13px;border-radius:10px}
+  .btn.block{width:100%}
+  .btn.ok{background:var(--ok);color:#fff;border-color:transparent}
+  .btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 30%,var(--line))}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:650;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2)}
+  .chip.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+  .chip.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+  .chip.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+  .chip.brand{background:var(--brand-soft);color:var(--brand);border-color:transparent}
+  label.fld{display:block;margin:12px 0 0}
+  label.fld .lab{font-size:12.5px;font-weight:650;color:var(--ink-2);margin-bottom:5px;display:block}
+  input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--ink);font-size:15px;font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--brand) 45%,transparent);outline-offset:0;border-color:var(--brand)}
+  .seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+  .seg button{flex:1;border:none;background:transparent;color:var(--ink-2);padding:9px;border-radius:9px;font-weight:650;font-size:13.5px;cursor:pointer}
+  .seg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+  .list>*+*{margin-top:10px}
+  .item{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+  .item .t{font-weight:680;font-size:14.5px}
+  .item .d{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .barrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-top:10px}
+  .barrow .nm{font-size:13.5px;font-weight:600}
+  .bar{height:9px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-top:5px}
+  .bar>i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--brand),#7c74ff)}
+  .bar.bad>i{background:linear-gradient(90deg,#f0795a,var(--bad))}
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:40;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
+  .tabs-in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+  .tab{border:none;background:transparent;color:var(--ink-3);padding:7px 4px;border-radius:12px;font-size:11px;font-weight:650;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .tab svg{width:22px;height:22px}
+  .tab.on{color:var(--brand)}
+  .fab{position:fixed;right:18px;bottom:calc(82px + env(safe-area-inset-bottom));z-index:41;width:56px;height:56px;border-radius:18px;background:var(--brand);color:var(--brand-ink);border:none;box-shadow:0 8px 24px color-mix(in srgb,var(--brand) 45%,transparent);font-size:26px;cursor:pointer;display:grid;place-items:center}
+  .sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(10,14,28,.5);backdrop-filter:blur(2px);display:none;align-items:flex-end;justify-content:center}
+  .sheet-bg.open{display:flex}
+  .sheet{background:var(--surface);width:100%;max-width:760px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:8px 16px calc(24px + env(safe-area-inset-bottom));border:1px solid var(--line);border-bottom:none}
+  .grab{width:40px;height:4px;border-radius:999px;background:var(--line);margin:8px auto 10px}
+  .sheet h3{margin:4px 2px 2px;font-size:19px;font-weight:760;letter-spacing:-.3px}
+  .sheet .hint{font-size:13px;color:var(--ink-3);margin:0 2px 8px}
+  .answers{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:8px}
+  .acell{border:1px solid var(--line);border-radius:10px;padding:5px;text-align:center;background:var(--surface-2)}
+  .acell .qn{font-size:10px;color:var(--ink-3);font-weight:700}
+  .acell .opts{display:flex;gap:2px;margin-top:3px;justify-content:center}
+  .acell .opts b{flex:1;font-size:12px;font-weight:700;padding:3px 0;border-radius:6px;cursor:pointer;color:var(--ink-3);background:var(--surface)}
+  .acell .opts b.on{background:var(--brand);color:var(--brand-ink)}
+  .acell.correct{outline:2px solid var(--ok)}
+  .acell.wrong{outline:2px solid var(--bad)}
+  .konu-pick{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px;margin-top:6px}
+  .kline{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:9px}
+  .kline:nth-child(odd){background:var(--surface-2)}
+  .kline .kn{flex:1;font-size:13.5px}
+  .step{display:flex;align-items:center;gap:8px}
+  .step button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:16px;font-weight:700;cursor:pointer;line-height:1}
+  .step span{min-width:18px;text-align:center;font-weight:700;font-size:14px}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom));z-index:80;background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .empty{text-align:center;color:var(--ink-3);padding:30px 10px;font-size:14px}
+  .gate{position:fixed;inset:0;z-index:100;background:var(--bg);display:grid;place-items:center;padding:24px}
+  .gate .box{width:100%;max-width:320px;text-align:center}
+  .pin{letter-spacing:10px;text-align:center;font-size:24px;font-weight:800}
+  .tiny{font-size:11.5px;color:var(--ink-3)}
+  .split{display:flex;gap:8px}.split>*{flex:1}
+  .tag{font-size:11px;font-weight:700;padding:2px 7px;border-radius:7px;background:var(--brand-soft);color:var(--brand)}
+  .net-big{font-size:30px;font-weight:850;letter-spacing:-1px}
+  .hidden{display:none!important}
+  .sk{height:70px;border-radius:14px;background:linear-gradient(90deg,var(--surface-2),var(--surface),var(--surface-2));background-size:200% 100%;animation:sh 1.2s infinite}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="box">
+    <div class="logo" style="margin:0 auto 14px;width:52px;height:52px;border-radius:16px;font-size:22px">LGS</div>
+    <h1 style="margin:0 0 4px;font-size:22px">LGS Takip</h1>
+    <p class="muted" style="margin:0 0 18px;font-size:14px">Devam etmek için PIN gir</p>
+    <input id="pinInput" class="pin" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off">
+    <button class="btn brand block" style="margin-top:14px" id="pinBtn">Giriş</button>
+    <p class="tiny" id="pinErr" style="margin-top:10px;color:var(--bad);visibility:hidden">Hatalı PIN</p>
+  </div>
+</div>
+
+<header class="top hidden" id="appTop">
+  <div class="top-in">
+    <div class="logo">LGS</div>
+    <div>
+      <h1 id="viewTitle">Özet</h1>
+      <div class="sub" id="viewSub">Genel durum</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="icon-btn" id="refreshBtn" title="Yenile">⟳</button>
+    <button class="icon-btn" id="themeBtn" title="Tema">◐</button>
+  </div>
+</header>
+
+<main class="wrap hidden" id="app">
+  <section id="view-ozet"></section>
+  <section id="view-odev" class="hidden"></section>
+  <section id="view-sonuc" class="hidden"></section>
+  <section id="view-analiz" class="hidden"></section>
+</main>
+
+<button class="fab hidden" id="fab" title="Sonuç gir">＋</button>
+
+<nav class="tabs hidden" id="nav">
+  <div class="tabs-in">
+    <button class="tab on" data-v="ozet">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>Özet</button>
+    <button class="tab" data-v="odev">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Ödevler</button>
+    <button class="tab" data-v="sonuc">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Sonuç</button>
+    <button class="tab" data-v="analiz">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Analiz</button>
+  </div>
+</nav>
+
+<div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"></script>
+<script>
+/* ---------- CONFIG ---------- */
+const SB_URL = "https://gplfwgtegmxdsemsiszf.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwbGZ3Z3RlZ214ZHNlbXNpc3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MzAxMTUsImV4cCI6MjEwOTEwNjExNX0.aa4slgeXqrFvK9zvo0NAECiHmUkg_fjlepCk00gdPaQ";
+const APP_PIN = "2026"; // İsterseniz bu satırı değiştirin
+const { createClient } = window.supabase;
+const db = createClient(SB_URL, SB_KEY);
+
+/* ---------- STATE ---------- */
+const S = {
+  dersler:[], konby:{}, konByDers:{}, matByDers:{}, matById:{},
+  view:"ozet"
+};
+const $ = (s,el=document)=>el.querySelector(s);
+const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
+const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const net = (d,y)=> (Number(d||0) - Number(y||0)/3);
+const fnet = (d,y)=> net(d,y).toFixed(2).replace('.',',');
+const todayISO = ()=> new Date().toISOString().slice(0,10);
+const trDate = iso => { if(!iso) return "—"; const [y,m,d]=iso.split('-'); return `${d}.${m}.${y.slice(2)}`; };
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ---------- GATE ---------- */
+function openGate(){
+  const g=$('#gate'), inp=$('#pinInput');
+  if(sessionStorage.getItem('lgs_ok')==='1'){ g.style.display='none'; startApp(); return; }
+  g.style.display='grid';
+  const tryPin=()=>{ if(inp.value===APP_PIN){ sessionStorage.setItem('lgs_ok','1'); g.style.display='none'; startApp(); } else { $('#pinErr').style.visibility='visible'; inp.value=''; } };
+  $('#pinBtn').onclick=tryPin;
+  inp.onkeydown=e=>{ if(e.key==='Enter') tryPin(); $('#pinErr').style.visibility='hidden'; };
+  inp.focus();
+}
+
+/* ---------- THEME ---------- */
+(function initTheme(){ const t=localStorage.getItem('lgs_theme'); if(t) document.documentElement.setAttribute('data-theme',t); })();
+function toggleTheme(){
+  const cur=document.documentElement.getAttribute('data-theme');
+  const dark=cur? cur==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  const next=dark?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next); localStorage.setItem('lgs_theme',next);
+}
+
+/* ---------- DATA LOAD ---------- */
+async function loadCatalog(){
+  const [dr, ko, ma] = await Promise.all([
+    db.from('dersler').select('*').order('sira'),
+    db.from('konular').select('id,ders_id,ad,unite,sira').order('sira'),
+    db.from('materyaller').select('id,ad,yayin,ders_id,tur').order('ad')
+  ]);
+  if(dr.error||ko.error||ma.error){ throw (dr.error||ko.error||ma.error); }
+  S.dersler = dr.data;
+  S.konby={}; S.konByDers={};
+  ko.data.forEach(k=>{ S.konby[k.id]=k; (S.konByDers[k.ders_id]=S.konByDers[k.ders_id]||[]).push(k); });
+  S.matByDers={}; S.matById={};
+  ma.data.forEach(m=>{ S.matById[m.id]=m; (S.matByDers[m.ders_id]=S.matByDers[m.ders_id]||[]).push(m); });
+}
+const dersAd = id => (S.dersler.find(d=>d.id==id)||{}).ad || "—";
+
+async function testsOf(materyalId){
+  const {data,error}=await db.from('materyal_testleri').select('id,unite,bolum,tip,test_no,konu_id').eq('materyal_id',materyalId).order('test_no');
+  if(error){toast('Testler yüklenemedi');return[];}
+  return data;
+}
+function testLabel(t){
+  let s = t.unite || '';
+  if(t.test_no!=null){ const b=(t.bolum && t.bolum!=='Test')? t.bolum : 'Test'; s += (s?' · ':'')+b+' '+t.test_no; }
+  return s || ('Test #'+t.id);
+}
+
+/* ---------- VIEWS ---------- */
+const TITLES={ozet:['Özet','Genel durum'],odev:['Ödevler','Okul & dershane ödevleri'],sonuc:['Sonuç Gir','Test & deneme sonuçları'],analiz:['Analiz','Konu bazında zayıflık']};
+function setView(v){
+  S.view=v;
+  $$('#nav .tab').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  ['ozet','odev','sonuc','analiz'].forEach(x=>$('#view-'+x).classList.toggle('hidden',x!==v));
+  $('#viewTitle').textContent=TITLES[v][0]; $('#viewSub').textContent=TITLES[v][1];
+  $('#fab').classList.toggle('hidden', v!=='ozet' && v!=='odev');
+  window.scrollTo(0,0);
+  if(v==='ozet') renderOzet();
+  if(v==='odev') renderOdev();
+  if(v==='sonuc') renderSonuc();
+  if(v==='analiz') renderAnaliz();
+}
+
+/* ----- ÖZET ----- */
+async function renderOzet(){
+  const el=$('#view-ozet');
+  el.innerHTML=`<div style="margin-top:16px" class="grid3">
+      <div class="sk"></div><div class="sk"></div><div class="sk"></div></div>`;
+  const [odevR, sonR, ykR] = await Promise.all([
+    db.from('odevler').select('id,durum,teslim_tarihi,baslik,ders_id,kaynak,materyal').order('teslim_tarihi',{nullsFirst:false}),
+    db.from('sonuclar').select('id,dogru,yanlis,bos,net,cozum_tarihi,deneme_id,odev_id,ders_id,denemeler(ad,tarih)').order('cozum_tarihi',{ascending:false}).limit(60),
+    db.from('yanlis_konular').select('konu_id,adet')
+  ]);
+  const odev=odevR.data||[], son=sonR.data||[], yk=ykR.data||[];
+  const bekle=odev.filter(o=>o.durum!=='yapildi');
+  const gecikti=bekle.filter(o=>o.teslim_tarihi && o.teslim_tarihi<todayISO());
+  const haftaBasi=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  const buHafta=son.filter(s=>s.cozum_tarihi>=haftaBasi).length;
+  // weak topics
+  const agg={}; yk.forEach(r=>{ agg[r.konu_id]=(agg[r.konu_id]||0)+(r.adet||1); });
+  const weak=Object.entries(agg).map(([id,n])=>({k:S.konby[id],n})).filter(x=>x.k).sort((a,b)=>b.n-a.n).slice(0,6);
+  const maxW=weak.length?weak[0].n:1;
+  // recent denemeler (group by deneme)
+  const denMap={};
+  son.filter(s=>s.deneme_id).forEach(s=>{ const d=denMap[s.deneme_id]=denMap[s.deneme_id]||{ad:s.denemeler?.ad||'Deneme',tarih:s.denemeler?.tarih,net:0}; d.net+=net(s.dogru,s.yanlis); });
+  const dens=Object.values(denMap).sort((a,b)=>(b.tarih||'').localeCompare(a.tarih||'')).slice(0,5);
+
+  el.innerHTML = `
+    <div class="grid3" style="margin-top:16px">
+      <div class="stat"><div class="n">${bekle.length}</div><div class="l">Bekleyen ödev</div></div>
+      <div class="stat"><div class="n" style="color:var(--${gecikti.length?'bad':'ink'})">${gecikti.length}</div><div class="l">Geciken</div></div>
+      <div class="stat"><div class="n">${buHafta}</div><div class="l">Bu hafta çözülen</div></div>
+    </div>
+
+    <h2 class="sec">En zayıf konular</h2>
+    <div class="card pad">
+      ${weak.length? weak.map(w=>`
+        <div style="margin-top:2px">
+          <div class="barrow"><div class="nm">${esc(w.k.ad)} <span class="tiny">· ${dersAd(w.k.ders_id)}</span></div><span class="chip bad">${w.n} yanlış</span></div>
+          <div class="bar bad"><i style="width:${Math.max(8,w.n/maxW*100)}%"></i></div>
+        </div>`).join('') : `<div class="empty">Henüz yanlış konu verisi yok.<br>Sonuç girdikçe burada en çok zorlandığı konular çıkacak.</div>`}
+    </div>
+
+    <h2 class="sec">Son denemeler</h2>
+    <div class="list">
+      ${dens.length? dens.map(d=>`
+        <div class="item"><div class="dot" style="background:var(--brand)"></div>
+          <div style="flex:1"><div class="t">${esc(d.ad)}</div><div class="d">${trDate(d.tarih)}</div></div>
+          <div class="net-big" style="font-size:20px">${d.net.toFixed(2).replace('.',',')}<span class="tiny"> net</span></div>
+        </div>`).join('') : `<div class="empty">Henüz deneme sonucu girilmedi.</div>`}
+    </div>
+
+    <h2 class="sec">Hızlı işlem</h2>
+    <div class="split">
+      <button class="btn brand" onclick="openOdevForm()">＋ Ödev ekle</button>
+      <button class="btn" onclick="setView('sonuc')">＋ Sonuç gir</button>
+    </div>`;
+}
+
+/* ----- ÖDEVLER ----- */
+let odevFilter='bekliyor';
+async function renderOdev(){
+  const el=$('#view-odev');
+  el.innerHTML=`<div style="margin-top:16px" class="seg" id="ofSeg">
+      <button data-f="bekliyor" class="${odevFilter==='bekliyor'?'on':''}">Bekleyen</button>
+      <button data-f="yapildi" class="${odevFilter==='yapildi'?'on':''}">Yapıldı</button>
+      <button data-f="hepsi" class="${odevFilter==='hepsi'?'on':''}">Hepsi</button>
+    </div>
+    <button class="btn brand block" style="margin-top:12px" onclick="openOdevForm()">＋ Yeni ödev</button>
+    <div id="odevList" class="list" style="margin-top:14px"><div class="sk"></div><div class="sk"></div></div>`;
+  $$('#ofSeg button').forEach(b=>b.onclick=()=>{odevFilter=b.dataset.f;renderOdev();});
+  let q=db.from('odevler').select('*').order('teslim_tarihi',{nullsFirst:false}).order('verilis_tarihi',{ascending:false});
+  if(odevFilter==='bekliyor') q=q.neq('durum','yapildi');
+  if(odevFilter==='yapildi') q=q.eq('durum','yapildi');
+  const {data,error}=await q;
+  const list=$('#odevList');
+  if(error){list.innerHTML=`<div class="empty">Yüklenemedi: ${esc(error.message)}</div>`;return;}
+  if(!data.length){list.innerHTML=`<div class="empty">Bu filtrede ödev yok.</div>`;return;}
+  const srcIcon={okul:'🏫',dershane:'📘',veli:'👨‍👩‍👦',diger:'•'};
+  list.innerHTML=data.map(o=>{
+    const gec = o.durum!=='yapildi' && o.teslim_tarihi && o.teslim_tarihi<todayISO();
+    const col = o.durum==='yapildi'?'ok':(gec?'bad':'warn');
+    return `<div class="item">
+      <div class="dot" style="background:var(--${col})"></div>
+      <div style="flex:1;min-width:0">
+        <div class="t">${esc(o.baslik||'Ödev')}</div>
+        <div class="d">${srcIcon[o.kaynak]||''} ${esc(o.kurum||o.kaynak)} · ${dersAd(o.ders_id)}${o.materyal?' · '+esc(o.materyal):''}${o.teslim_tarihi?' · teslim '+trDate(o.teslim_tarihi):''}</div>
+      </div>
+      ${o.durum==='yapildi'
+        ? `<span class="chip ok">✓</span>`
+        : `<button class="btn sm ok" onclick="markDone(${o.id})">Yapıldı</button>`}
+      <button class="icon-btn" style="width:32px;height:32px;font-size:14px" onclick="delOdev(${o.id})">🗑</button>
+    </div>`;
+  }).join('');
+}
+async function markDone(id){
+  const {data}=await db.from('odevler').select('*').eq('id',id).single();
+  // sonuç girmek ister mi? test ödeviyse sonuç akışına yönlendir
+  openResultSheet({fromOdev:data});
+}
+async function delOdev(id){
+  if(!confirm('Bu ödev silinsin mi?')) return;
+  await db.from('odevler').update({durum:'yapildi'}).eq('id',id); // güvenli: DELETE engelli olabilir
+  const {error}=await db.from('odevler').delete().eq('id',id);
+  if(error){ toast('Silinemedi (sadece arşivlendi)'); }
+  renderOdev();
+}
+
+/* ----- ÖDEV FORM ----- */
+function openOdevForm(){
+  const dersOpts = S.dersler.map(d=>`<option value="${d.id}">${esc(d.ad)}</option>`).join('');
+  sheet(`
+    <h3>Yeni ödev</h3>
+    <p class="hint">Okuldan (MEÇ) veya dershaneden (Fenomen) verilen ödevi ekle.</p>
+    <label class="fld"><span class="lab">Kaynak</span>
+      <div class="seg" id="kaynakSeg">
+        <button data-k="okul" class="on">Okul</button>
+        <button data-k="dershane">Dershane</button>
+        <button data-k="veli">Veli</button>
+      </div></label>
+    <label class="fld"><span class="lab">Kurum</span><input id="of_kurum" list="kurumList" value="MEÇ"><datalist id="kurumList"><option value="MEÇ"><option value="Fenomen"></datalist></label>
+    <label class="fld"><span class="lab">Ders</span><select id="of_ders">${dersOpts}</select></label>
+    <label class="fld"><span class="lab">Kitap (opsiyonel)</span><select id="of_mat"><option value="">— Seçiniz —</option></select></label>
+    <label class="fld" id="of_testWrap" style="display:none"><span class="lab">Test / bölüm (opsiyonel)</span><select id="of_test"><option value="">— Seçiniz —</option></select></label>
+    <label class="fld"><span class="lab">Başlık</span><input id="of_baslik" placeholder="örn. Mevsimler Test 3, sayfa 24-25"></label>
+    <label class="fld"><span class="lab">Tür</span>
+      <div class="seg" id="turSeg"><button data-t="test" class="on">Test</button><button data-t="okuma">Okuma</button><button data-t="yazili">Yazılı</button></div></label>
+    <div class="split" style="margin-top:4px">
+      <label class="fld" style="margin-top:8px"><span class="lab">Veriliş</span><input type="date" id="of_veril" value="${todayISO()}"></label>
+      <label class="fld" style="margin-top:8px"><span class="lab">Teslim</span><input type="date" id="of_teslim"></label>
+    </div>
+    <label class="fld"><span class="lab">Not</span><input id="of_not" placeholder="opsiyonel"></label>
+    <button class="btn brand block" style="margin-top:18px" id="of_save">Kaydet</button>
+  `);
+  let kaynak='okul', tur='test';
+  $$('#kaynakSeg button').forEach(b=>b.onclick=()=>{kaynak=b.dataset.k;$$('#kaynakSeg button').forEach(x=>x.classList.toggle('on',x===b));$('#of_kurum').value=kaynak==='okul'?'MEÇ':(kaynak==='dershane'?'Fenomen':'');});
+  $$('#turSeg button').forEach(b=>b.onclick=()=>{tur=b.dataset.t;$$('#turSeg button').forEach(x=>x.classList.toggle('on',x===b));});
+  const matSel=$('#of_mat'), testSel=$('#of_test');
+  function fillMat(){ const did=$('#of_ders').value; const ms=S.matByDers[did]||[]; matSel.innerHTML='<option value="">— Seçiniz —</option>'+ms.map(m=>`<option value="${m.id}">${esc(m.ad)}</option>`).join(''); $('#of_testWrap').style.display='none'; }
+  $('#of_ders').onchange=fillMat; fillMat();
+  matSel.onchange=async()=>{ const mid=matSel.value; if(!mid){$('#of_testWrap').style.display='none';return;} const ts=await testsOf(mid); testSel.innerHTML='<option value="">— Seçiniz —</option>'+ts.map(t=>`<option value="${t.id}">${esc(testLabel(t))}</option>`).join(''); $('#of_testWrap').style.display='block'; testSel.onchange=()=>{ if(testSel.value && !$('#of_baslik').value){ const t=ts.find(x=>x.id==testSel.value); $('#of_baslik').value=testLabel(t);} }; };
+  $('#of_save').onclick=async()=>{
+    const ders=$('#of_ders').value, baslik=$('#of_baslik').value.trim();
+    if(!baslik){toast('Başlık gir');return;}
+    const row={ ders_id:+ders, kaynak, kurum:$('#of_kurum').value.trim()||null, baslik, tur,
+      materyal: matSel.value? S.matById[matSel.value].ad : null,
+      materyal_test_id: testSel.value? +testSel.value : null,
+      verilis_tarihi:$('#of_veril').value||todayISO(), teslim_tarihi:$('#of_teslim').value||null,
+      notlar:$('#of_not').value.trim()||null, durum:'bekliyor' };
+    $('#of_save').disabled=true;
+    const {error}=await db.from('odevler').insert(row);
+    if(error){toast('Hata: '+error.message);$('#of_save').disabled=false;return;}
+    closeSheet(); toast('Ödev eklendi'); if(S.view==='odev')renderOdev(); else if(S.view==='ozet')renderOzet();
+  };
+}
+
+/* ----- SONUÇ GİR ----- */
+let sonucMode='kitap';
+function renderSonuc(){
+  const el=$('#view-sonuc');
+  el.innerHTML=`<div style="margin-top:16px" class="seg" id="smSeg">
+      <button data-m="kitap" class="${sonucMode==='kitap'?'on':''}">Kitap testi</button>
+      <button data-m="deneme" class="${sonucMode==='deneme'?'on':''}">Deneme sınavı</button>
+    </div><div id="sonucBody" style="margin-top:14px"></div>`;
+  $$('#smSeg button').forEach(b=>b.onclick=()=>{sonucMode=b.dataset.m;renderSonuc();});
+  if(sonucMode==='kitap') renderKitapForm();
+  else renderDenemeForm();
+}
+
+function renderKitapForm(){
+  const el=$('#sonucBody');
+  const dersOpts=S.dersler.map(d=>`<option value="${d.id}">${esc(d.ad)}</option>`).join('');
+  el.innerHTML=`<div class="card pad">
+    <label class="fld"><span class="lab">Ders</span><select id="k_ders">${dersOpts}</select></label>
+    <label class="fld"><span class="lab">Kitap</span><select id="k_mat"><option value="">— Seçiniz —</option></select></label>
+    <label class="fld"><span class="lab">Test</span><select id="k_test"><option value="">— Önce kitap seçin —</option></select></label>
+    <div id="k_dyn" style="margin-top:6px"></div>
+  </div>`;
+  const matSel=$('#k_mat'), testSel=$('#k_test');
+  function fillMat(){ const did=$('#k_ders').value; const ms=S.matByDers[did]||[]; matSel.innerHTML='<option value="">— Seçiniz —</option>'+ms.map(m=>`<option value="${m.id}">${esc(m.ad)}</option>`).join(''); testSel.innerHTML='<option value="">— Önce kitap seçin —</option>'; $('#k_dyn').innerHTML=''; }
+  $('#k_ders').onchange=fillMat; fillMat();
+  matSel.onchange=async()=>{ $('#k_dyn').innerHTML=''; if(!matSel.value){testSel.innerHTML='<option value="">— Önce kitap seçin —</option>';return;} const ts=await testsOf(matSel.value); testSel._ts=ts; testSel.innerHTML='<option value="">— Seçiniz —</option>'+ts.map(t=>`<option value="${t.id}">${esc(testLabel(t))}</option>`).join(''); };
+  testSel.onchange=()=>{ const t=(testSel._ts||[]).find(x=>x.id==testSel.value); if(t) buildKitapEntry(t, +$('#k_ders').value); else $('#k_dyn').innerHTML=''; };
+}
+
+async function buildKitapEntry(test, dersId){
+  const dyn=$('#k_dyn');
+  dyn.innerHTML=`<div class="sk" style="margin-top:12px"></div>`;
+  const [caR, mskR]=await Promise.all([
+    db.from('cevap_anahtari').select('soru_no,dogru_cevap').eq('materyal_test_id',test.id).order('soru_no'),
+    db.from('materyal_soru_konu').select('soru_no,konu_id').eq('materyal_test_id',test.id).order('soru_no')
+  ]);
+  const CA=caR.data||[], MSK=mskR.data||[];
+  const hasCA=CA.length>0, hasMSK=MSK.length>0;
+  const nQ = hasCA?CA.length : 20;
+  const ctx={test,dersId,CA,MSK,hasCA,hasMSK,answers:{},manualKonu:{}};
+  window._kitapCtx=ctx;
+
+  let html=`<div class="row" style="margin-top:12px;flex-wrap:wrap;gap:6px">
+     ${hasCA?'<span class="chip ok">Cevap anahtarı var</span>':'<span class="chip">Cevap anahtarı yok</span>'}
+     ${hasMSK?'<span class="chip brand">Konu analizi var</span>':''}
+     ${test.konu_id?`<span class="chip">${esc((S.konby[test.konu_id]||{}).ad||'')}</span>`:''}
+   </div>`;
+
+  if(hasCA){
+    html+=`<p class="hint" style="margin-top:10px">Çocuğun işaretlediği şıkları gir — boş bırakılanlar "boş" sayılır. D/Y/B ve ${hasMSK?'yanlış konular ':''}otomatik hesaplanır.</p>
+      <div class="answers" id="ansGrid"></div>
+      <div class="split" style="margin-top:10px"><button class="btn sm" id="clrAns">Temizle</button></div>`;
+  } else {
+    html+=`<p class="hint" style="margin-top:10px">Doğru / yanlış / boş sayılarını gir.</p>
+      <div class="grid3" style="margin-top:4px">
+        <label class="fld" style="margin:0"><span class="lab">Doğru</span><input type="number" min="0" id="m_d" value="0"></label>
+        <label class="fld" style="margin:0"><span class="lab">Yanlış</span><input type="number" min="0" id="m_y" value="0"></label>
+        <label class="fld" style="margin:0"><span class="lab">Boş</span><input type="number" min="0" id="m_b" value="0"></label>
+      </div>`;
+  }
+  // net preview + konu + save
+  html+=`<div class="card" style="margin-top:14px;padding:12px;display:flex;align-items:center;justify-content:space-between">
+      <div><div class="tiny">Net</div><div class="net-big" id="netOut">0,00</div></div>
+      <div style="text-align:right"><div class="tiny">D / Y / B</div><div style="font-weight:800;font-size:17px" id="dybOut">0 / 0 / 0</div></div>
+    </div>
+    <div id="konuBox"></div>
+    <label class="fld"><span class="lab">Çözüm tarihi</span><input type="date" id="k_date" value="${todayISO()}"></label>
+    <button class="btn brand block" style="margin-top:14px" id="k_save">Sonucu kaydet</button>`;
+  dyn.innerHTML=html;
+
+  if(hasCA){
+    const g=$('#ansGrid');
+    g.innerHTML=CA.map(c=>`<div class="acell" data-q="${c.soru_no}"><div class="qn">${c.soru_no}</div><div class="opts">${['A','B','C','D'].map(o=>`<b data-o="${o}">${o}</b>`).join('')}</div></div>`).join('');
+    g.onclick=e=>{ const b=e.target.closest('b'); if(!b)return; const cell=b.closest('.acell'); const q=+cell.dataset.q; const o=b.dataset.o;
+      if(ctx.answers[q]===o){ delete ctx.answers[q]; } else { ctx.answers[q]=o; }
+      $$('b',cell).forEach(x=>x.classList.toggle('on',ctx.answers[q]===x.dataset.o));
+      gradeCA(ctx);
+    };
+    $('#clrAns').onclick=()=>{ ctx.answers={}; $$('#ansGrid .acell').forEach(c=>{c.classList.remove('correct','wrong');$$('b',c).forEach(x=>x.classList.remove('on'));}); gradeCA(ctx); };
+    gradeCA(ctx);
+  } else {
+    const upd=()=>{ const d=+$('#m_d').value||0,y=+$('#m_y').value||0,b=+$('#m_b').value||0; $('#netOut').textContent=fnet(d,y); $('#dybOut').textContent=`${d} / ${y} / ${b}`; };
+    ['m_d','m_y','m_b'].forEach(id=>$('#'+id).oninput=upd); upd();
+  }
+  buildKonuBox(ctx);
+  $('#k_save').onclick=()=>saveKitapResult(ctx);
+}
+
+function gradeCA(ctx){
+  let d=0,y=0,b=0; const wrongQs=[];
+  ctx.CA.forEach(c=>{ const a=ctx.answers[c.soru_no]; if(!a){b++;} else if(a===c.dogru_cevap){d++;} else {y++; wrongQs.push(c.soru_no);} });
+  $('#netOut').textContent=fnet(d,y); $('#dybOut').textContent=`${d} / ${y} / ${b}`;
+  $$('#ansGrid .acell').forEach(cell=>{ const q=+cell.dataset.q; cell.classList.remove('correct','wrong'); if(ctx.answers[q]){ const corr=ctx.CA.find(c=>c.soru_no==q).dogru_cevap; cell.classList.add(ctx.answers[q]===corr?'correct':'wrong'); } });
+  ctx._dyb={d,y,b}; ctx._wrongQs=wrongQs;
+  // auto konu from MSK
+  if(ctx.hasMSK){
+    const auto={}; wrongQs.forEach(q=>{ const m=ctx.MSK.find(x=>x.soru_no==q); if(m&&m.konu_id){ auto[m.konu_id]=(auto[m.konu_id]||0)+1; } });
+    ctx.autoKonu=auto; renderAutoKonu(ctx);
+  }
+}
+function renderAutoKonu(ctx){
+  const box=$('#konuAuto'); if(!box)return;
+  const ents=Object.entries(ctx.autoKonu||{});
+  box.innerHTML = ents.length? ents.map(([id,n])=>`<span class="chip bad">${esc((S.konby[id]||{}).ad||'?')} ×${n}</span>`).join(' ')
+     : `<span class="tiny muted">Yanlış seçtikçe konular otomatik çıkacak.</span>`;
+}
+function buildKonuBox(ctx){
+  const box=$('#konuBox');
+  if(ctx.hasMSK){
+    box.innerHTML=`<h2 class="sec" style="margin-top:16px">Yanlış konular (otomatik)</h2>
+      <div class="card pad" id="konuAuto"></div>`;
+    renderAutoKonu(ctx);
+    return;
+  }
+  // manual konu picker for this ders
+  const ks=S.konByDers[ctx.dersId]||[];
+  box.innerHTML=`<h2 class="sec" style="margin-top:16px">Yanlış konular</h2>
+    <p class="tiny" style="margin:0 4px 6px">Yanlış yaptığı konuları işaretle (adet artır).</p>
+    <div class="konu-pick">${ks.map(k=>`<div class="kline"><span class="kn">${esc(k.ad)}</span>
+       <div class="step"><button data-k="${k.id}" data-s="-1">−</button><span id="ks_${k.id}">0</span><button data-k="${k.id}" data-s="1">＋</button></div></div>`).join('')}</div>`;
+  box.querySelector('.konu-pick').onclick=e=>{ const btn=e.target.closest('button'); if(!btn)return; const id=btn.dataset.k; const cur=ctx.manualKonu[id]||0; const nx=Math.max(0,cur+ (btn.dataset.s==='1'?1:-1)); if(nx===0)delete ctx.manualKonu[id]; else ctx.manualKonu[id]=nx; $('#ks_'+id).textContent=nx; };
+}
+
+async function saveKitapResult(ctx){
+  let d,y,b;
+  if(ctx.hasCA){ ({d,y,b}=ctx._dyb||{d:0,y:0,b:0}); if(d+y+b===0){toast('Şıkları işaretle');return;} }
+  else { d=+$('#m_d').value||0; y=+$('#m_y').value||0; b=+$('#m_b').value||0; if(d+y+b===0){toast('D/Y/B gir');return;} }
+  const konu = ctx.hasMSK ? (ctx.autoKonu||{}) : (ctx.manualKonu||{});
+  $('#k_save').disabled=true;
+  // 1) yapıldı ödevi oluştur (kitap testi kaydı)
+  const matName = (await db.from('materyal_testleri').select('materyaller(ad)').eq('id',ctx.test.id).single()).data?.materyaller?.ad || null;
+  const odev={ ders_id:ctx.dersId, kaynak:'veli', baslik:testLabel(ctx.test), materyal:matName,
+     materyal_test_id:ctx.test.id, tur:'test', durum:'yapildi', verilis_tarihi:$('#k_date').value||todayISO(), teslim_tarihi:null };
+  const odevRes=await db.from('odevler').insert(odev).select('id').single();
+  if(odevRes.error){toast('Hata: '+odevRes.error.message);$('#k_save').disabled=false;return;}
+  const sonuc={ odev_id:odevRes.data.id, ders_id:ctx.dersId, materyal_test_id:ctx.test.id, dogru:d, yanlis:y, bos:b, cozum_tarihi:$('#k_date').value||todayISO() };
+  const sRes=await db.from('sonuclar').insert(sonuc).select('id').single();
+  if(sRes.error){toast('Hata: '+sRes.error.message);$('#k_save').disabled=false;return;}
+  const yk=Object.entries(konu).map(([konu_id,adet])=>({sonuc_id:sRes.data.id,konu_id:+konu_id,adet}));
+  if(yk.length){ const r=await db.from('yanlis_konular').insert(yk); if(r.error)toast('Konular kaydedilemedi'); }
+  $('#k_save').disabled=false;
+  closeSheet(); toast(`Kaydedildi · net ${fnet(d,y)}`);
+  setView('ozet');
+}
+
+/* ----- DENEME ----- */
+function renderDenemeForm(){
+  const el=$('#sonucBody');
+  el.innerHTML=`<div class="card pad">
+      <label class="fld"><span class="lab">Deneme adı</span><input id="d_ad" placeholder="örn. Fenomen Genel Deneme 4"></label>
+      <label class="fld"><span class="lab">Kurum</span><input id="d_kurum" list="kurumList2" placeholder="Fenomen / MEÇ / ..."><datalist id="kurumList2"><option value="Fenomen"><option value="MEÇ"></datalist></label>
+      <div class="split">
+        <label class="fld"><span class="lab">Tarih</span><input type="date" id="d_tarih" value="${todayISO()}"></label>
+        <label class="fld"><span class="lab">Tür</span><select id="d_tur"><option value="genel">Genel</option><option value="brans">Branş</option></select></label>
+      </div>
+    </div>
+    <h2 class="sec">Dersler · D / Y / B</h2>
+    <div class="list" id="d_dersler"></div>
+    <div class="card" style="margin-top:14px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+      <div class="tiny">Toplam net</div><div class="net-big" id="d_totnet">0,00</div></div>
+    <button class="btn brand block" style="margin-top:14px" id="d_save">Denemeyi kaydet</button>`;
+  const ctx={rows:{}}; window._denemeCtx=ctx;
+  $('#d_dersler').innerHTML=S.dersler.map(d=>`
+    <div class="card pad" style="padding:12px">
+      <div class="row" style="justify-content:space-between"><b>${esc(d.ad)}</b><span class="chip" id="dn_${d.id}">0,00 net</span></div>
+      <div class="grid3" style="margin-top:8px">
+        <label class="fld" style="margin:0"><span class="lab">D</span><input type="number" min="0" id="dd_${d.id}" value=""></label>
+        <label class="fld" style="margin:0"><span class="lab">Y</span><input type="number" min="0" id="dy_${d.id}" value=""></label>
+        <label class="fld" style="margin:0"><span class="lab">B</span><input type="number" min="0" id="db_${d.id}" value=""></label>
+      </div>
+      <button class="btn sm ghost" style="margin-top:8px" onclick="toggleKonu(${d.id})" id="kbtn_${d.id}">＋ Yanlış konu ekle</button>
+      <div id="dk_${d.id}" class="hidden" style="margin-top:8px"></div>
+    </div>`).join('');
+  S.dersler.forEach(d=>{ ['dd_','dy_','db_'].forEach(p=>{ const inp=$('#'+p+d.id); inp.oninput=()=>updDeneme(d.id); }); });
+  $('#d_save').onclick=saveDeneme;
+}
+function updDeneme(did){
+  const d=+$('#dd_'+did).value||0,y=+$('#dy_'+did).value||0;
+  $('#dn_'+did).textContent=fnet(d,y)+' net';
+  let tot=0; S.dersler.forEach(dd=>{ tot+=net(+$('#dd_'+dd.id).value||0,+$('#dy_'+dd.id).value||0); });
+  $('#d_totnet').textContent=tot.toFixed(2).replace('.',',');
+}
+function toggleKonu(did){
+  const box=$('#dk_'+did); const ctx=window._denemeCtx; ctx.rows[did]=ctx.rows[did]||{};
+  if(!box.classList.contains('hidden')){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const ks=S.konByDers[did]||[];
+  box.innerHTML=`<div class="konu-pick">${ks.map(k=>`<div class="kline"><span class="kn">${esc(k.ad)}</span>
+     <div class="step"><button data-k="${k.id}" data-s="-1">−</button><span id="dks_${did}_${k.id}">0</span><button data-k="${k.id}" data-s="1">＋</button></div></div>`).join('')}</div>`;
+  box.querySelector('.konu-pick').onclick=e=>{ const btn=e.target.closest('button'); if(!btn)return; const id=btn.dataset.k; const cur=ctx.rows[did][id]||0; const nx=Math.max(0,cur+(btn.dataset.s==='1'?1:-1)); if(nx===0)delete ctx.rows[did][id]; else ctx.rows[did][id]=nx; $('#dks_'+did+'_'+id).textContent=nx; };
+}
+async function saveDeneme(){
+  const ad=$('#d_ad').value.trim(); if(!ad){toast('Deneme adı gir');return;}
+  const rows=S.dersler.map(d=>({id:d.id,d:+$('#dd_'+d.id).value||0,y:+$('#dy_'+d.id).value||0,b:+$('#db_'+d.id).value||0})).filter(r=>r.d+r.y+r.b>0);
+  if(!rows.length){toast('En az bir ders için D/Y/B gir');return;}
+  $('#d_save').disabled=true;
+  const dRes=await db.from('denemeler').insert({ad,kurum:$('#d_kurum').value.trim()||null,tarih:$('#d_tarih').value||todayISO(),tur:$('#d_tur').value}).select('id').single();
+  if(dRes.error){toast('Hata: '+dRes.error.message);$('#d_save').disabled=false;return;}
+  const denId=dRes.data.id; const ctx=window._denemeCtx;
+  for(const r of rows){
+    const sRes=await db.from('sonuclar').insert({deneme_id:denId,ders_id:r.id,dogru:r.d,yanlis:r.y,bos:r.b,cozum_tarihi:$('#d_tarih').value||todayISO()}).select('id').single();
+    if(sRes.error){continue;}
+    const km=ctx.rows[r.id]||{}; const yk=Object.entries(km).map(([konu_id,adet])=>({sonuc_id:sRes.data.id,konu_id:+konu_id,adet}));
+    if(yk.length) await db.from('yanlis_konular').insert(yk);
+  }
+  $('#d_save').disabled=false; toast('Deneme kaydedildi'); setView('ozet');
+}
+
+/* ----- ANALİZ ----- */
+let analizDers='';
+async function renderAnaliz(){
+  const el=$('#view-analiz');
+  const dersOpts=`<option value="">Tüm dersler</option>`+S.dersler.map(d=>`<option value="${d.id}" ${analizDers==d.id?'selected':''}>${esc(d.ad)}</option>`).join('');
+  el.innerHTML=`<label class="fld" style="margin-top:16px"><span class="lab">Ders</span><select id="an_ders">${dersOpts}</select></label>
+    <div id="an_body" style="margin-top:14px"><div class="sk"></div><div class="sk"></div></div>`;
+  $('#an_ders').onchange=()=>{analizDers=$('#an_ders').value;renderAnaliz();};
+  // yanlis_konular + konu + ders
+  const {data,error}=await db.from('yanlis_konular').select('adet,konu_id,konular(ad,ders_id)');
+  const body=$('#an_body');
+  if(error){body.innerHTML=`<div class="empty">Yüklenemedi</div>`;return;}
+  let rows=data||[];
+  if(analizDers) rows=rows.filter(r=>r.konular && r.konular.ders_id==analizDers);
+  const agg={};
+  rows.forEach(r=>{ if(!r.konular)return; const key=r.konu_id; agg[key]=agg[key]||{ad:r.konular.ad,ders:r.konular.ders_id,n:0}; agg[key].n+=r.adet||1; });
+  const list=Object.values(agg).sort((a,b)=>b.n-a.n);
+  const max=list.length?list[0].n:1;
+  const toplam=list.reduce((s,x)=>s+x.n,0);
+  if(!list.length){ body.innerHTML=`<div class="empty">Henüz yanlış konu verisi yok.<br>Sonuç girdikçe buraya konu bazında zayıflık haritası çıkacak.</div>`; return; }
+  body.innerHTML=`<div class="stat" style="margin-bottom:12px"><div class="n">${toplam}</div><div class="l">Toplam yanlış (işaretlenen konu)</div></div>
+    <div class="card pad">
+    ${list.map(x=>`<div style="margin-top:4px">
+       <div class="barrow"><div class="nm">${esc(x.ad)}${analizDers?'':` <span class="tiny">· ${dersAd(x.ders)}</span>`}</div><span class="chip ${x.n>=max*0.66?'bad':(x.n>=max*0.33?'warn':'')}">${x.n}</span></div>
+       <div class="bar ${x.n>=max*0.5?'bad':''}"><i style="width:${Math.max(7,x.n/max*100)}%"></i></div>
+     </div>`).join('')}
+    </div>`;
+}
+
+/* ----- RESULT SHEET (ödevden) ----- */
+function openResultSheet({fromOdev}){
+  // ödevden sonuç: ödevi yapıldı yap + kitap testi akışı (test varsa otomatik puanlama)
+  sheet(`<h3>${esc(fromOdev.baslik||'Ödev sonucu')}</h3>
+    <p class="hint">${esc(dersAd(fromOdev.ders_id))}${fromOdev.materyal?' · '+esc(fromOdev.materyal):''}</p>
+    <div id="rsBody"></div>`);
+  const ctx={test:null,dersId:fromOdev.ders_id,CA:[],MSK:[],hasCA:false,hasMSK:false,answers:{},manualKonu:{},_odev:fromOdev};
+  const body=$('#rsBody');
+  const finish=async()=>{
+    // mark done
+    await db.from('odevler').update({durum:'yapildi'}).eq('id',fromOdev.id);
+  };
+  if(fromOdev.materyal_test_id){
+    db.from('materyal_testleri').select('*').eq('id',fromOdev.materyal_test_id).single().then(async({data:t})=>{
+      $('#rsBody').innerHTML='<div class="sk"></div>';
+      // reuse buildKitapEntry by injecting dyn container
+      $('#rsBody').innerHTML=`<div id="k_dyn"></div>`;
+      await buildKitapEntry(t, fromOdev.ders_id);
+      // override save to also mark odev done, and link to this odev
+      const ctx2=window._kitapCtx; ctx2._odev=fromOdev;
+      $('#k_save').onclick=async()=>{ await saveFromOdev(ctx2); };
+    });
+  } else {
+    // basit D/Y/B + konu
+    body.innerHTML=`<div class="grid3" style="margin-top:6px">
+        <label class="fld" style="margin:0"><span class="lab">Doğru</span><input type="number" min="0" id="r_d" value="0"></label>
+        <label class="fld" style="margin:0"><span class="lab">Yanlış</span><input type="number" min="0" id="r_y" value="0"></label>
+        <label class="fld" style="margin:0"><span class="lab">Boş</span><input type="number" min="0" id="r_b" value="0"></label>
+      </div>
+      <div class="card" style="margin-top:12px;padding:12px;display:flex;justify-content:space-between;align-items:center"><div class="tiny">Net</div><div class="net-big" id="r_net">0,00</div></div>
+      <div id="r_konu"></div>
+      <div class="split" style="margin-top:14px">
+        <button class="btn" id="r_skip">Sadece "yapıldı"</button>
+        <button class="btn brand" id="r_save">Sonucu kaydet</button>
+      </div>`;
+    const upd=()=>$('#r_net').textContent=fnet(+$('#r_d').value||0,+$('#r_y').value||0);
+    ['r_d','r_y','r_b'].forEach(id=>$('#'+id).oninput=upd);
+    // manual konu
+    const ks=S.konByDers[fromOdev.ders_id]||[];
+    $('#r_konu').innerHTML=`<h2 class="sec">Yanlış konular</h2><div class="konu-pick">${ks.map(k=>`<div class="kline"><span class="kn">${esc(k.ad)}</span><div class="step"><button data-k="${k.id}" data-s="-1">−</button><span id="rks_${k.id}">0</span><button data-k="${k.id}" data-s="1">＋</button></div></div>`).join('')}</div>`;
+    $('#r_konu').querySelector('.konu-pick').onclick=e=>{const b=e.target.closest('button');if(!b)return;const id=b.dataset.k;const cur=ctx.manualKonu[id]||0;const nx=Math.max(0,cur+(b.dataset.s==='1'?1:-1));if(nx===0)delete ctx.manualKonu[id];else ctx.manualKonu[id]=nx;$('#rks_'+id).textContent=nx;};
+    $('#r_skip').onclick=async()=>{ await finish(); closeSheet(); toast('Yapıldı olarak işaretlendi'); renderOdev(); };
+    $('#r_save').onclick=async()=>{
+      const d=+$('#r_d').value||0,y=+$('#r_y').value||0,b=+$('#r_b').value||0;
+      await finish();
+      const sRes=await db.from('sonuclar').insert({odev_id:fromOdev.id,ders_id:fromOdev.ders_id,materyal_test_id:fromOdev.materyal_test_id||null,dogru:d,yanlis:y,bos:b}).select('id').single();
+      if(!sRes.error){ const yk=Object.entries(ctx.manualKonu).map(([k,a])=>({sonuc_id:sRes.data.id,konu_id:+k,adet:a})); if(yk.length)await db.from('yanlis_konular').insert(yk); }
+      closeSheet(); toast('Sonuç kaydedildi'); renderOdev();
+    };
+  }
+}
+async function saveFromOdev(ctx){
+  let d,y,b;
+  if(ctx.hasCA){({d,y,b}=ctx._dyb||{d:0,y:0,b:0}); if(d+y+b===0){toast('Şıkları işaretle');return;}}
+  else {d=+$('#m_d').value||0;y=+$('#m_y').value||0;b=+$('#m_b').value||0;}
+  await db.from('odevler').update({durum:'yapildi'}).eq('id',ctx._odev.id);
+  const sRes=await db.from('sonuclar').insert({odev_id:ctx._odev.id,ders_id:ctx.dersId,materyal_test_id:ctx.test.id,dogru:d,yanlis:y,bos:b,cozum_tarihi:$('#k_date').value||todayISO()}).select('id').single();
+  if(!sRes.error){ const konu=ctx.hasMSK?(ctx.autoKonu||{}):(ctx.manualKonu||{}); const yk=Object.entries(konu).map(([k,a])=>({sonuc_id:sRes.data.id,konu_id:+k,adet:a})); if(yk.length)await db.from('yanlis_konular').insert(yk); }
+  closeSheet(); toast(`Kaydedildi · net ${fnet(d,y)}`); renderOdev();
+}
+
+/* ---------- SHEET ---------- */
+function sheet(html){ $('#sheet').innerHTML=`<div class="grab"></div>`+html; $('#sheetBg').classList.add('open'); }
+function closeSheet(){ $('#sheetBg').classList.remove('open'); }
+$('#sheetBg').addEventListener('click',e=>{ if(e.target.id==='sheetBg') closeSheet(); });
+
+/* ---------- BOOT ---------- */
+async function startApp(){
+  $('#appTop').classList.remove('hidden'); $('#app').classList.remove('hidden'); $('#nav').classList.remove('hidden'); $('#fab').classList.remove('hidden');
+  $$('#nav .tab').forEach(b=>b.onclick=()=>setView(b.dataset.v));
+  $('#themeBtn').onclick=toggleTheme;
+  $('#refreshBtn').onclick=()=>setView(S.view);
+  $('#fab').onclick=()=>{ if(S.view==='odev') openOdevForm(); else setView('sonuc'); };
+  try{ await loadCatalog(); }
+  catch(e){ $('#view-ozet').innerHTML=`<div class="empty" style="margin-top:30px">Bağlantı hatası:<br>${esc(e.message||e)}<br><br>İnternet bağlantını kontrol et.</div>`; return; }
+  setView('ozet');
+}
+openGate();
+</script>
+</body>
+</html>

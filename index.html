@@ -321,7 +321,7 @@ async function renderOzet(){
   el.innerHTML = `
     <div class="grid3" style="margin-top:16px">
       <div class="stat" role="button" tabindex="0" style="cursor:pointer" onclick="goOdev('bekliyor')"><div class="n">${bekle.length}</div><div class="l">Bekleyen ödev ›</div></div>
-      <div class="stat" role="button" tabindex="0" style="cursor:pointer" onclick="goOdev('bekliyor')"><div class="n" style="color:var(--${gecikti.length?'bad':'ink'})">${gecikti.length}</div><div class="l">Geciken ›</div></div>
+      <div class="stat" role="button" tabindex="0" style="cursor:pointer" onclick="goOdev('geciken')"><div class="n" style="color:var(--${gecikti.length?'bad':'ink'})">${gecikti.length}</div><div class="l">Geciken ›</div></div>
       <div class="stat" role="button" tabindex="0" style="cursor:pointer" onclick="goOdev('yapildi')"><div class="n">${buHafta}</div><div class="l">Bu hafta çözülen ›</div></div>
     </div>
 
@@ -356,6 +356,7 @@ function goOdev(f){ odevFilter=f||'bekliyor'; setView('odev'); }
 async function renderOdev(){
   const el=$('#view-odev');
   el.innerHTML=`<div style="margin-top:16px" class="seg" id="ofSeg">
+      <button data-f="geciken" class="${odevFilter==='geciken'?'on':''}">Geciken</button>
       <button data-f="bekliyor" class="${odevFilter==='bekliyor'?'on':''}">Bekleyen</button>
       <button data-f="yapildi" class="${odevFilter==='yapildi'?'on':''}">Yapıldı</button>
       <button data-f="hepsi" class="${odevFilter==='hepsi'?'on':''}">Hepsi</button>
@@ -363,12 +364,16 @@ async function renderOdev(){
     <button class="btn brand block" style="margin-top:12px" onclick="openOdevForm()">＋ Yeni ödev</button>
     <div id="odevList" class="list" style="margin-top:14px"><div class="sk"></div><div class="sk"></div></div>`;
   $$('#ofSeg button').forEach(b=>b.onclick=()=>{odevFilter=b.dataset.f;renderOdev();});
-  let q=db.from('odevler').select('*').order('teslim_tarihi',{nullsFirst:false}).order('verilis_tarihi',{ascending:false});
-  if(odevFilter==='bekliyor') q=q.neq('durum','yapildi');
-  if(odevFilter==='yapildi') q=q.eq('durum','yapildi');
-  const {data,error}=await q;
+  const q=db.from('odevler').select('*').order('teslim_tarihi',{nullsFirst:false}).order('verilis_tarihi',{ascending:false});
+  const {data:raw,error}=await q;
   const list=$('#odevList');
   if(error){list.innerHTML=`<div class="empty">Yüklenemedi: ${esc(error.message)}</div>`;return;}
+  const today=todayISO();
+  const gecMi=o=>o.durum!=='yapildi' && o.teslim_tarihi && o.teslim_tarihi<today;
+  let data=raw||[];
+  if(odevFilter==='geciken') data=data.filter(gecMi);
+  else if(odevFilter==='bekliyor') data=data.filter(o=>o.durum!=='yapildi' && !gecMi(o));
+  else if(odevFilter==='yapildi') data=data.filter(o=>o.durum==='yapildi');
   if(!data.length){list.innerHTML=`<div class="empty">Bu filtrede ödev yok.</div>`;return;}
   const srcIcon={okul:'🏫',dershane:'📘',veli:'👨‍👩‍👦',diger:'•'};
   const srcLabel={dershane:'Dershane',okul:'Okul',veli:'Veli',diger:'Diğer'};

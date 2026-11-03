@@ -115,6 +115,7 @@
   .acell .opts b.ringko{box-shadow:0 0 0 3px var(--kor)}                                  /* yanlış işaret → kalın kırmızı halka */
   .acell .opts b.fillok{background:var(--okg);border-color:var(--okg);color:#fff}         /* doğru şıkkın içi yeşil dolu */
   .answers.locked .opts b{cursor:default}                                                /* kontrol sonrası form kilitli */
+  details > summary{list-style:none} details > summary::-webkit-details-marker{display:none}
   .konu-pick{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px;margin-top:6px}
   .kline{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:9px}
   .kline:nth-child(odd){background:var(--surface-2)}
@@ -464,11 +465,12 @@ function renderKitapForm(){
 async function buildKitapEntry(test, dersId){
   const dyn=$('#k_dyn');
   dyn.innerHTML=`<div class="sk" style="margin-top:12px"></div>`;
-  const [caR, mskR]=await Promise.all([
+  const [caR, mskR, prevR]=await Promise.all([
     db.from('cevap_anahtari').select('soru_no,dogru_cevap').eq('materyal_test_id',test.id).order('soru_no'),
-    db.from('materyal_soru_konu').select('soru_no,konu_id').eq('materyal_test_id',test.id).order('soru_no')
+    db.from('materyal_soru_konu').select('soru_no,konu_id').eq('materyal_test_id',test.id).order('soru_no'),
+    db.from('sonuclar').select('dogru,yanlis,bos,cozum_tarihi').eq('materyal_test_id',test.id).order('cozum_tarihi',{ascending:false})
   ]);
-  const CA=caR.data||[], MSK=mskR.data||[];
+  const CA=caR.data||[], MSK=mskR.data||[], PREV=prevR.data||[];
   const hasCA=CA.length>0, hasMSK=MSK.length>0;
   const nQ = hasCA?CA.length : 20;
   const ctx={test,dersId,CA,MSK,hasCA,hasMSK,answers:{},manualKonu:{}};
@@ -478,7 +480,21 @@ async function buildKitapEntry(test, dersId){
      ${hasCA?'<span class="chip ok">Cevap anahtarı var</span>':'<span class="chip">Cevap anahtarı yok</span>'}
      ${hasMSK?'<span class="chip brand">Konu analizi var</span>':''}
      ${test.konu_id?`<span class="chip">${esc((S.konby[test.konu_id]||{}).ad||'')}</span>`:''}
+     ${PREV.length?`<span class="chip">${PREV.length} önceki çözüm</span>`:''}
    </div>`;
+
+  if(PREV.length){
+    html+=`<details class="card" style="margin-top:10px;padding:0" ${PREV.length? '':'open'}>
+      <summary style="padding:11px 13px;cursor:pointer;font-weight:680;font-size:13px;list-style:none">↩︎ Önceki çözümler (${PREV.length})</summary>
+      <div style="padding:0 13px 11px">${PREV.map(p=>{
+        const net=fnet(p.dogru,p.yanlis);
+        return `<div class="row" style="justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line)">
+          <span class="tiny" style="color:var(--ink-2)">${trDate(p.cozum_tarihi)}</span>
+          <span style="font-size:12.5px"><b>D</b> ${p.dogru} · <b>Y</b> ${p.yanlis} · <b>B</b> ${p.bos??0} <span style="color:var(--ink-3)">· net ${net}</span></span>
+        </div>`;
+      }).join('')}</div>
+    </details>`;
+  }
 
   if(hasCA){
     html+=`<p class="hint" style="margin-top:10px">Öğrenci şıkları işaretlesin. Bitince <b>Kontrol et</b>'e bas — sonuç çıkar ve form kilitlenir. Yeniden denemek için <b>Temizle</b>.</p>
@@ -703,15 +719,15 @@ async function toggleKitapTests(mid){
   box.innerHTML='<div class="sk" style="height:44px"></div>';
   const ts=await testsOf(mid);
   const ids=ts.map(t=>t.id);
-  const done={};
+  const done={}, cnt={};
   if(ids.length){
     const {data}=await db.from('sonuclar').select('materyal_test_id,dogru,yanlis,cozum_tarihi').in('materyal_test_id',ids).order('cozum_tarihi',{ascending:false});
-    (data||[]).forEach(s=>{ if(s.materyal_test_id && !done[s.materyal_test_id]) done[s.materyal_test_id]={d:s.dogru,y:s.yanlis}; });
+    (data||[]).forEach(s=>{ if(!s.materyal_test_id)return; cnt[s.materyal_test_id]=(cnt[s.materyal_test_id]||0)+1; if(!done[s.materyal_test_id]) done[s.materyal_test_id]={d:s.dogru,y:s.yanlis}; });
   }
   if(!ts.length){box.innerHTML='<div class="tiny muted" style="padding:6px">Bu kitapta test kaydı yok.</div>';return;}
   box.innerHTML=`<div class="konu-pick" style="max-height:320px">${ts.map(t=>{
-    const dn=done[t.id]; const q=soruStr(t.soru_sayisi);
-    return `<div class="kline"><span class="kn" style="font-size:13px">${esc(testLabel(t))}${q?` <span style="color:var(--ink-3);font-weight:500">· ${q}</span>`:''}</span>${dn?`<span class="chip ok" style="font-size:11px">✓ net ${fnet(dn.d,dn.y)}</span>`:`<span class="chip" style="font-size:11px">yapılmadı</span>`}</div>`;
+    const dn=done[t.id]; const n=cnt[t.id]||0; const q=soruStr(t.soru_sayisi);
+    return `<div class="kline"><span class="kn" style="font-size:13px">${esc(testLabel(t))}${q?` <span style="color:var(--ink-3);font-weight:500">· ${q}</span>`:''}</span>${dn?`<span class="chip ok" style="font-size:11px">✓ net ${fnet(dn.d,dn.y)}${n>1?` · ${n}×`:''}</span>`:`<span class="chip" style="font-size:11px">yapılmadı</span>`}</div>`;
   }).join('')}</div>`;
 }
 

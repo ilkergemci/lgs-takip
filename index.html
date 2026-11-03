@@ -99,14 +99,19 @@
   .grab{width:40px;height:4px;border-radius:999px;background:var(--line);margin:8px auto 10px}
   .sheet h3{margin:4px 2px 2px;font-size:19px;font-weight:760;letter-spacing:-.3px}
   .sheet .hint{font-size:13px;color:var(--ink-3);margin:0 2px 8px}
-  .answers{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:8px}
-  .acell{border:1px solid var(--line);border-radius:10px;padding:5px;text-align:center;background:var(--surface-2)}
-  .acell .qn{font-size:10px;color:var(--ink-3);font-weight:700}
-  .acell .opts{display:flex;gap:2px;margin-top:3px;justify-content:center}
-  .acell .opts b{flex:1;font-size:12px;font-weight:700;padding:3px 0;border-radius:6px;cursor:pointer;color:var(--ink-3);background:var(--surface)}
-  .acell .opts b.on{background:var(--brand);color:var(--brand-ink)}
-  .acell.correct{outline:2px solid var(--ok)}
-  .acell.wrong{outline:2px solid var(--bad)}
+  /* Optik cevap formu */
+  .optik-wrap{border:1.5px solid var(--line);border-radius:12px;overflow:hidden;margin-top:10px;background:var(--surface)}
+  .optik-head{background:var(--surface-2);text-align:center;font-weight:800;font-size:12px;letter-spacing:.16em;padding:9px;border-bottom:1.5px solid var(--line);color:var(--ink-2)}
+  .answers{display:grid;grid-template-columns:1fr;gap:0}
+  @media(min-width:440px){ .answers{grid-template-columns:1fr 1fr} .answers .acell:nth-child(odd){border-right:1px solid var(--line)} }
+  .acell{display:flex;align-items:center;gap:9px;padding:6px 11px;border-bottom:1px solid var(--line)}
+  .acell .qn{width:24px;text-align:center;font-weight:800;font-size:13px;color:var(--ink-2);flex:none}
+  .acell .opts{display:flex;gap:9px;flex:1;justify-content:flex-start}
+  .acell .opts b{width:30px;height:30px;line-height:27px;text-align:center;border:1.6px solid var(--line);border-radius:50%;font-size:12px;font-weight:700;color:var(--ink-3);cursor:pointer;background:var(--surface);transition:background .08s,border-color .08s,color .08s;-webkit-tap-highlight-color:transparent}
+  .acell .opts b.on{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+  .acell.correct .opts b.on{background:var(--ok);border-color:var(--ok);color:#fff}
+  .acell.wrong .opts b.on{background:var(--bad);border-color:var(--bad);color:#fff}
+  .acell.wrong .opts b.key{border-color:var(--ok);color:var(--ok);box-shadow:inset 0 0 0 1.5px var(--ok)}
   .konu-pick{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px;margin-top:6px}
   .kline{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:9px}
   .kline:nth-child(odd){background:var(--surface-2)}
@@ -473,8 +478,8 @@ async function buildKitapEntry(test, dersId){
    </div>`;
 
   if(hasCA){
-    html+=`<p class="hint" style="margin-top:10px">Çocuğun işaretlediği şıkları gir — boş bırakılanlar "boş" sayılır. D/Y/B ve ${hasMSK?'yanlış konular ':''}otomatik hesaplanır.</p>
-      <div class="answers" id="ansGrid"></div>
+    html+=`<p class="hint" style="margin-top:10px">Çocuk cevap formundan işaretlesin — boş bırakılanlar "boş" sayılır. D/Y/B ve ${hasMSK?'yanlış konular ':''}otomatik hesaplanır.</p>
+      <div class="optik-wrap"><div class="optik-head">CEVAP FORMU</div><div class="answers" id="ansGrid"></div></div>
       <div class="split" style="margin-top:10px"><button class="btn sm" id="clrAns">Temizle</button></div>`;
   } else {
     html+=`<p class="hint" style="margin-top:10px">Doğru / yanlış / boş sayılarını gir.</p>
@@ -516,7 +521,7 @@ function gradeCA(ctx){
   let d=0,y=0,b=0; const wrongQs=[];
   ctx.CA.forEach(c=>{ const a=ctx.answers[c.soru_no]; if(!a){b++;} else if(a===c.dogru_cevap){d++;} else {y++; wrongQs.push(c.soru_no);} });
   $('#netOut').textContent=fnet(d,y); $('#dybOut').textContent=`${d} / ${y} / ${b}`;
-  $$('#ansGrid .acell').forEach(cell=>{ const q=+cell.dataset.q; cell.classList.remove('correct','wrong'); if(ctx.answers[q]){ const corr=ctx.CA.find(c=>c.soru_no==q).dogru_cevap; cell.classList.add(ctx.answers[q]===corr?'correct':'wrong'); } });
+  $$('#ansGrid .acell').forEach(cell=>{ const q=+cell.dataset.q; cell.classList.remove('correct','wrong'); $$('b',cell).forEach(x=>x.classList.remove('key')); if(ctx.answers[q]){ const corr=ctx.CA.find(c=>c.soru_no==q).dogru_cevap; const ok=ctx.answers[q]===corr; cell.classList.add(ok?'correct':'wrong'); if(!ok){ const kb=$$('b',cell).find(x=>x.dataset.o===corr); if(kb)kb.classList.add('key'); } } });
   ctx._dyb={d,y,b}; ctx._wrongQs=wrongQs;
   // auto konu from MSK
   if(ctx.hasMSK){

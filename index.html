@@ -12,6 +12,7 @@
     --brand:#4f46e5; --brand-ink:#ffffff; --brand-soft:#ecebfd;
     --ok:#16a34a; --ok-soft:#e3f7ea; --warn:#d97706; --warn-soft:#fdf0db;
     --bad:#dc2626; --bad-soft:#fdeaea; --info:#0ea5e9;
+    --okg:#1f9d3f; --kor:#d83b3b;
     --shadow:0 1px 2px rgba(27,36,64,.06),0 8px 24px rgba(27,36,64,.07);
     --r:16px; --r-sm:11px;
   }
@@ -88,9 +89,9 @@
   .bar>i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--brand),#7c74ff)}
   .bar.bad>i{background:linear-gradient(90deg,#f0795a,var(--bad))}
   nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:40;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
-  .tabs-in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
-  .tab{border:none;background:transparent;color:var(--ink-3);padding:7px 4px;border-radius:12px;font-size:11px;font-weight:650;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
-  .tab svg{width:22px;height:22px}
+  .tabs-in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(6,1fr);gap:2px}
+  .tab{border:none;background:transparent;color:var(--ink-3);padding:7px 2px;border-radius:12px;font-size:10.5px;font-weight:650;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .tab svg{width:21px;height:21px}
   .tab.on{color:var(--brand)}
   .fab{position:fixed;right:18px;bottom:calc(82px + env(safe-area-inset-bottom));z-index:41;width:56px;height:56px;border-radius:18px;background:var(--brand);color:var(--brand-ink);border:none;box-shadow:0 8px 24px color-mix(in srgb,var(--brand) 45%,transparent);font-size:26px;cursor:pointer;display:grid;place-items:center}
   .sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(10,14,28,.5);backdrop-filter:blur(2px);display:none;align-items:flex-end;justify-content:center}
@@ -121,6 +122,13 @@
   .acell .cam-btn{flex:none;width:34px;height:30px;border:2px solid var(--kor);background:var(--surface);color:var(--kor);border-radius:8px;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
   .acell .cam-btn.done{border-color:var(--okg);background:var(--okg);color:#fff}
   .acell .cam-btn.busy{border-color:var(--ink-3);color:var(--ink-3);opacity:.7}
+  .tkimg-wrap{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;overflow:auto;max-height:46vh;display:flex;justify-content:center}
+  .tkimg{max-width:100%;height:auto;display:block}
+  .tk-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .tk-opt{padding:14px 0;font-size:18px;font-weight:800;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;cursor:pointer}
+  .tk-opt:disabled{cursor:default;opacity:.95}
+  .tk-opt.ok{border-color:var(--okg);background:var(--okg);color:#fff}
+  .tk-opt.ko{border-color:var(--kor);background:var(--kor);color:#fff}
   .acell.needphoto{background:color-mix(in srgb, var(--kor) 7%, transparent)}
   .photostat{margin-top:10px;font-size:13px;font-weight:650;color:var(--kor);background:color-mix(in srgb, var(--kor) 10%, transparent);border:1px solid color-mix(in srgb,var(--kor) 35%,transparent);border-radius:10px;padding:9px 12px}
   .photostat.ok{color:var(--okg);background:color-mix(in srgb,var(--okg) 12%,transparent);border-color:color-mix(in srgb,var(--okg) 35%,transparent)}
@@ -183,6 +191,7 @@
   <section id="view-odev" class="hidden"></section>
   <section id="view-sonuc" class="hidden"></section>
   <section id="view-analiz" class="hidden"></section>
+  <section id="view-tekrar" class="hidden"></section>
 </main>
 
 <button class="fab hidden" id="fab" title="Sonuç gir">＋</button>
@@ -199,6 +208,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Sonuç</button>
     <button class="tab" data-v="analiz">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Analiz</button>
+    <button class="tab" data-v="tekrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/></svg>Tekrar</button>
   </div>
 </nav>
 
@@ -287,11 +298,11 @@ function soruStr(n){ return (n!=null && +n>0)? (+n)+' soru' : ''; }
 function testOpt(t){ const q=soruStr(t.soru_sayisi); return esc(testLabel(t))+(q?' ('+q+')':''); }
 
 /* ---------- VIEWS ---------- */
-const TITLES={ozet:['Özet','Genel durum'],kitap:['Kitaplar','Kitap bazında ilerleme'],odev:['Ödevler','Okul & dershane ödevleri'],sonuc:['Sonuç Gir','Test & deneme sonuçları'],analiz:['Analiz','Konu bazında zayıflık']};
+const TITLES={ozet:['Özet','Genel durum'],kitap:['Kitaplar','Kitap bazında ilerleme'],odev:['Ödevler','Okul & dershane ödevleri'],sonuc:['Sonuç Gir','Test & deneme sonuçları'],analiz:['Analiz','Konu bazında zayıflık'],tekrar:['Tekrar','Yanlış soruları yeniden çöz']};
 function setView(v){
   S.view=v;
   $$('#nav .tab').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
-  ['ozet','kitap','odev','sonuc','analiz'].forEach(x=>$('#view-'+x).classList.toggle('hidden',x!==v));
+  ['ozet','kitap','odev','sonuc','analiz','tekrar'].forEach(x=>$('#view-'+x).classList.toggle('hidden',x!==v));
   $('#viewTitle').textContent=TITLES[v][0]; $('#viewSub').textContent=TITLES[v][1];
   $('#fab').classList.toggle('hidden', v!=='ozet' && v!=='odev');
   window.scrollTo(0,0);
@@ -300,6 +311,7 @@ function setView(v){
   if(v==='odev') renderOdev();
   if(v==='sonuc') renderSonuc();
   if(v==='analiz') renderAnaliz();
+  if(v==='tekrar') renderTekrar();
 }
 
 /* ----- ÖZET ----- */
@@ -1064,6 +1076,103 @@ async function saveFromOdev(ctx){
   }
   if(allDone) await db.from('odevler').update({durum:'yapildi'}).eq('id',ctx._odev.id);
   closeSheet(); toast(allDone?`Kaydedildi · ödev yapıldı · net ${fnet(d,y)}`:`Kaydedildi · net ${fnet(d,y)}`); renderOdev();
+}
+
+/* ---------- TEKRAR (yanlış soruları yeniden çöz) ---------- */
+function bestFotoUrl(r){ return (r.vektor_durum==='hazir'&&r.vektor_url)?r.vektor_url:(r.temiz_url||r.foto_url); }
+function fotoKaynak(r){ return (r.vektor_durum==='hazir'&&r.vektor_url)?'vektör':(r.temiz_url?'temiz':'orijinal'); }
+async function renderTekrar(){
+  const el=$('#view-tekrar');
+  el.innerHTML=`<div class="sk" style="margin-top:16px"></div>`;
+  const [fR, caR] = await Promise.all([
+    db.from('yanlis_foto').select('id,materyal_test_id,soru_no,tip,foto_url,temiz_url,vektor_url,vektor_durum,ogrenildi,materyal_testleri(id,unite,bolum,test_no,materyal_id,materyaller(ad,ders_id))').eq('ogrenildi',false).order('created_at'),
+    db.from('cevap_anahtari').select('materyal_test_id,soru_no,dogru_cevap')
+  ]);
+  const rows=(fR.data||[]).filter(r=>r.materyal_testleri);
+  const caMap={}; (caR.data||[]).forEach(c=>caMap[c.materyal_test_id+'-'+c.soru_no]=c.dogru_cevap);
+  rows.forEach(r=>{ r._correct=caMap[r.materyal_test_id+'-'+r.soru_no]||null; r._t=r.materyal_testleri; r._mat=r._t.materyaller||{}; });
+
+  if(!rows.length){ el.innerHTML=`<div class="empty" style="margin-top:34px">Tekrar edilecek yanlış soru yok 🎉<br><span class="tiny">Yanlış/boş yapılan sorular burada toplanır.</span></div>`; return; }
+
+  // teste göre grupla
+  const groups={};
+  rows.forEach(r=>{ (groups[r.materyal_test_id]=groups[r.materyal_test_id]||{t:r._t,mat:r._mat,items:[]}).items.push(r); });
+  const gArr=Object.values(groups).sort((a,b)=>(a.mat.ders_id-b.mat.ders_id)||a.mat.ad.localeCompare(b.mat.ad,'tr'));
+
+  window._tekrarAll=rows;
+  let h=`<div class="row" style="justify-content:space-between;align-items:center;margin:16px 2px 10px">
+      <div><div style="font-weight:800;font-size:20px">${rows.length}</div><div class="tiny">tekrar edilecek yanlış soru</div></div>
+      <button class="btn brand" onclick="tekrarBasla(window._tekrarAll)">🎲 Karışık başla</button>
+    </div>`;
+  let curD=null;
+  gArr.forEach(g=>{
+    if(g.mat.ders_id!==curD){ curD=g.mat.ders_id; h+=`<h2 class="sec">${esc(dersAd(curD))}</h2>`; }
+    const lbl=testLabel({unite:g.t.unite,bolum:g.t.bolum,test_no:g.t.test_no,id:g.t.id});
+    h+=`<div class="card" style="padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="min-width:0"><div style="font-weight:650;font-size:13.5px">${esc(g.mat.ad||'')}</div>
+          <div class="tiny">${esc(lbl)} · ${g.items.length} yanlış soru</div></div>
+        <button class="btn sm brand" onclick='tekrarBasla(window._tekrarAll.filter(x=>x.materyal_test_id==${g.t.id}))'>Başla ›</button>
+      </div>`;
+  });
+  el.innerHTML=h;
+}
+
+function tekrarBasla(items){
+  if(!items||!items.length){ toast('Soru yok'); return; }
+  const list=[...items].sort(()=>Math.random()-0.5);
+  const state={list,i:0,ogrenildi:0,kalan:0,showOrig:false};
+  tekrarGoster(state);
+}
+function tekrarGoster(st){
+  const r=st.list[st.i];
+  const total=st.list.length, n=st.i+1;
+  const src=bestFotoUrl(r), kaynak=fotoKaynak(r);
+  const tipEt = r.tip==='bos'?'Boş bırakılmıştı':'Yanlış yapılmıştı';
+  sheet(`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span class="tiny">${n} / ${total}</span>
+      <span class="chip ${r.tip==='bos'?'':'bad'}">${tipEt}</span>
+    </div>
+    <div class="tkimg-wrap"><img class="tkimg" id="tk_img" src="${esc(src)}" alt="soru"></div>
+    <div class="row" style="justify-content:space-between;margin:6px 2px 2px">
+      <span class="tiny">Kaynak: ${kaynak}</span>
+      <button class="btn sm" id="tk_orig">${st.showOrig?'Temiz/çözülecek hali':'Nasıl çözmüştü? (orijinal)'}</button>
+    </div>
+    <p class="hint" style="margin:12px 2px 6px">Doğru cevabı işaretle:</p>
+    <div class="tk-opts" id="tk_opts">${['A','B','C','D'].map(o=>`<button class="tk-opt" data-o="${o}">${o}</button>`).join('')}</div>
+    <div id="tk_fb" style="margin-top:12px"></div>`);
+  // orijinal/temiz geçiş
+  $('#tk_orig').onclick=()=>{ st.showOrig=!st.showOrig; $('#tk_img').src = st.showOrig ? (r.foto_url||src) : src; $('#tk_orig').textContent = st.showOrig?'Temiz/çözülecek hali':'Nasıl çözmüştü? (orijinal)'; };
+  const opts=$('#tk_opts');
+  opts.onclick=async (e)=>{
+    const b=e.target.closest('.tk-opt'); if(!b||st._answered) return;
+    st._answered=true;
+    const pick=b.dataset.o, correct=r._correct;
+    $$('.tk-opt',opts).forEach(x=>{ x.disabled=true;
+      if(correct && x.dataset.o===correct) x.classList.add('ok');
+      if(x.dataset.o===pick && pick!==correct) x.classList.add('ko');
+    });
+    const dogru = correct && pick===correct;
+    // DB güncelle
+    if(dogru){ await db.from('yanlis_foto').update({ogrenildi:true, son_tekrar:new Date().toISOString(), tekrar_dogru:(r.tekrar_dogru||0)+1}).eq('id',r.id); st.ogrenildi++; }
+    else { await db.from('yanlis_foto').update({son_tekrar:new Date().toISOString(), tekrar_yanlis:(r.tekrar_yanlis||0)+1}).eq('id',r.id); st.kalan++; }
+    $('#tk_fb').innerHTML = `<div class="card" style="padding:12px;border-color:${dogru?'var(--okg)':'var(--kor)'}">
+        <div style="font-weight:700;color:${dogru?'var(--okg)':'var(--kor)'}">${dogru?'Doğru! ✓ Öğrenildi olarak işaretlendi':(correct?('Yanlış · doğru cevap '+correct):'Yanlış')}</div>
+        ${dogru?'':'<div class="tiny" style="margin-top:4px">Bu soru tekrar havuzunda kalacak.</div>'}
+      </div>
+      <button class="btn brand block" style="margin-top:12px" id="tk_next">${st.i+1<total?'Sonraki soru ›':'Bitir'}</button>`;
+    $('#tk_next').onclick=()=>{
+      if(st.i+1<total){ st.i++; st._answered=false; st.showOrig=false; tekrarGoster(st); }
+      else tekrarBitir(st);
+    };
+  };
+}
+function tekrarBitir(st){
+  sheet(`<div style="text-align:center;padding:14px 4px">
+      <div style="font-size:40px">🏁</div>
+      <h3 style="margin:8px 0 4px">Tekrar bitti</h3>
+      <p class="hint" style="margin:0 0 14px">${st.ogrenildi} soru öğrenildi · ${st.kalan} soru havuzda kaldı</p>
+      <button class="btn brand block" onclick="closeSheet();setView('tekrar')">Tamam</button>
+    </div>`);
 }
 
 /* ---------- SHEET ---------- */

@@ -403,12 +403,15 @@ async function odevAc(id){
   // ödev detayı: sonuç/optik form akışına gir
   openResultSheet({fromOdev:data});
 }
-async function delOdev(id){
-  if(!confirm('Bu ödev silinsin mi?')) return;
+const SIL_PAROLA="1907";
+async function odevSil(id){
+  const pw=prompt('Ödev silme parolası:');
+  if(pw===null) return;                    // iptal
+  if(pw!==SIL_PAROLA){ toast('Parola yanlış'); return; }
   await db.from('odevler').update({durum:'yapildi'}).eq('id',id); // güvenli: DELETE engelli olabilir
   const {error}=await db.from('odevler').delete().eq('id',id);
-  if(error){ toast('Silinemedi (sadece arşivlendi)'); }
-  renderOdev();
+  if(error){ toast('Silinemedi'); return; }
+  closeSheet(); toast('Ödev silindi'); renderOdev();
 }
 
 /* ----- ÖDEV FORM ----- */
@@ -791,7 +794,10 @@ function openResultSheet({fromOdev}){
   // ödevden sonuç: ödevi yapıldı yap + kitap testi akışı (test varsa otomatik puanlama)
   sheet(`<h3>${esc(fromOdev.baslik||'Ödev sonucu')}</h3>
     <p class="hint">${esc(dersAd(fromOdev.ders_id))}${fromOdev.materyal?' · '+esc(fromOdev.materyal):''}</p>
-    <div id="rsBody"></div>`);
+    <div id="rsBody"></div>
+    <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:12px">
+      <button class="btn block" style="color:var(--bad);border-color:var(--bad-soft)" onclick="odevSil(${fromOdev.id})">🗑 Ödevi sil</button>
+    </div>`);
   const ctx={test:null,dersId:fromOdev.ders_id,CA:[],MSK:[],hasCA:false,hasMSK:false,answers:{},manualKonu:{},_odev:fromOdev};
   const body=$('#rsBody');
   const finish=async()=>{

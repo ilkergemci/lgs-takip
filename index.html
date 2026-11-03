@@ -365,21 +365,30 @@ async function renderOdev(){
   if(error){list.innerHTML=`<div class="empty">Yüklenemedi: ${esc(error.message)}</div>`;return;}
   if(!data.length){list.innerHTML=`<div class="empty">Bu filtrede ödev yok.</div>`;return;}
   const srcIcon={okul:'🏫',dershane:'📘',veli:'👨‍👩‍👦',diger:'•'};
-  list.innerHTML=data.map(o=>{
+  const srcLabel={dershane:'Dershane',okul:'Okul',veli:'Veli',diger:'Diğer'};
+  const card=o=>{
     const gec = o.durum!=='yapildi' && o.teslim_tarihi && o.teslim_tarihi<todayISO();
     const col = o.durum==='yapildi'?'ok':(gec?'bad':'warn');
     return `<div class="item">
       <div class="dot" style="background:var(--${col})"></div>
       <div style="flex:1;min-width:0">
         <div class="t">${esc(o.baslik||'Ödev')}</div>
-        <div class="d">${srcIcon[o.kaynak]||''} ${esc(o.kurum||o.kaynak)} · ${dersAd(o.ders_id)}${o.materyal?' · '+esc(o.materyal):''}${o.teslim_tarihi?' · teslim '+trDate(o.teslim_tarihi):''}</div>
+        <div class="d">${esc(o.kurum||srcLabel[o.kaynak]||o.kaynak)} · ${dersAd(o.ders_id)}${o.materyal?' · '+esc(o.materyal):''}${o.teslim_tarihi?' · teslim '+trDate(o.teslim_tarihi):''}</div>
       </div>
       ${o.durum==='yapildi'
         ? `<span class="chip ok">✓</span>`
         : `<button class="btn sm ok" onclick="markDone(${o.id})">Yapıldı</button>`}
       <button class="icon-btn" style="width:32px;height:32px;font-size:14px" onclick="delOdev(${o.id})">🗑</button>
     </div>`;
-  }).join('');
+  };
+  const groups={}; data.forEach(o=>{(groups[o.kaynak]=groups[o.kaynak]||[]).push(o);});
+  let html='';
+  ['dershane','okul','veli','diger'].forEach(k=>{
+    const arr=groups[k]; if(!arr||!arr.length)return;
+    html+=`<h2 class="sec" style="display:flex;align-items:center;gap:7px">${srcIcon[k]||''} ${srcLabel[k]} <span style="font-weight:600;color:var(--ink-3);font-size:13px">(${arr.length})</span></h2>`;
+    html+=arr.map(card).join('');
+  });
+  list.innerHTML=html;
 }
 async function markDone(id){
   const {data}=await db.from('odevler').select('*').eq('id',id).single();

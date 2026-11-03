@@ -1079,6 +1079,7 @@ async function saveFromOdev(ctx){
 }
 
 /* ---------- TEKRAR (yanlış soruları yeniden çöz) ---------- */
+const TEKRAR_ESIK=2;  // öğrenildi için gereken üst üste doğru sayısı
 function bestFotoUrl(r){ return (r.vektor_durum==='hazir'&&r.vektor_url)?r.vektor_url:(r.temiz_url||r.foto_url); }
 function fotoKaynak(r){ return (r.vektor_durum==='hazir'&&r.vektor_url)?'vektör':(r.temiz_url?'temiz':'orijinal'); }
 async function renderTekrar(){
@@ -1130,7 +1131,10 @@ function tekrarGoster(st){
   const tipEt = r.tip==='bos'?'Boş bırakılmıştı':'Yanlış yapılmıştı';
   sheet(`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
       <span class="tiny">${n} / ${total}</span>
-      <span class="chip ${r.tip==='bos'?'':'bad'}">${tipEt}</span>
+      <span class="row" style="gap:6px">
+        ${(r.ustuste_dogru||0)>0?`<span class="chip ok">seri ${r.ustuste_dogru}/${TEKRAR_ESIK}</span>`:''}
+        <span class="chip ${r.tip==='bos'?'':'bad'}">${tipEt}</span>
+      </span>
     </div>
     <div class="tkimg-wrap"><img class="tkimg" id="tk_img" src="${esc(src)}" alt="soru"></div>
     <div class="row" style="justify-content:space-between;margin:6px 2px 2px">
@@ -1152,12 +1156,24 @@ function tekrarGoster(st){
       if(x.dataset.o===pick && pick!==correct) x.classList.add('ko');
     });
     const dogru = correct && pick===correct;
-    // DB güncelle
-    if(dogru){ await db.from('yanlis_foto').update({ogrenildi:true, son_tekrar:new Date().toISOString(), tekrar_dogru:(r.tekrar_dogru||0)+1}).eq('id',r.id); st.ogrenildi++; }
-    else { await db.from('yanlis_foto').update({son_tekrar:new Date().toISOString(), tekrar_yanlis:(r.tekrar_yanlis||0)+1}).eq('id',r.id); st.kalan++; }
+    // DB güncelle: üst üste TEKRAR_ESIK doğru → öğrenildi; yanlış → seri sıfırlanır
+    let ogr=false, seri=0, vardi=(r.ustuste_dogru||0)>0;
+    if(dogru){
+      seri=(r.ustuste_dogru||0)+1; ogr=seri>=TEKRAR_ESIK;
+      await db.from('yanlis_foto').update({ustuste_dogru:seri, ogrenildi:ogr, son_tekrar:new Date().toISOString(), tekrar_dogru:(r.tekrar_dogru||0)+1}).eq('id',r.id);
+      r.ustuste_dogru=seri; r.ogrenildi=ogr;
+      if(ogr) st.ogrenildi++; else st.kalan++;
+    } else {
+      await db.from('yanlis_foto').update({ustuste_dogru:0, son_tekrar:new Date().toISOString(), tekrar_yanlis:(r.tekrar_yanlis||0)+1}).eq('id',r.id);
+      r.ustuste_dogru=0; st.kalan++;
+    }
+    const mesaj = (dogru&&ogr) ? `Doğru! ✓ ${TEKRAR_ESIK} kez üst üste — öğrenildi`
+      : dogru ? `Doğru! Seri ${seri}/${TEKRAR_ESIK} · bir sonraki tekrarda da doğru yaparsan öğrenilecek`
+      : (correct?('Yanlış · doğru cevap '+correct):'Yanlış');
+    const altNot = (dogru&&ogr) ? '' : dogru ? 'Soru havuzda kalacak.' : (vardi?'Seri sıfırlandı · soru havuzda kalacak.':'Soru havuzda kalacak.');
     $('#tk_fb').innerHTML = `<div class="card" style="padding:12px;border-color:${dogru?'var(--okg)':'var(--kor)'}">
-        <div style="font-weight:700;color:${dogru?'var(--okg)':'var(--kor)'}">${dogru?'Doğru! ✓ Öğrenildi olarak işaretlendi':(correct?('Yanlış · doğru cevap '+correct):'Yanlış')}</div>
-        ${dogru?'':'<div class="tiny" style="margin-top:4px">Bu soru tekrar havuzunda kalacak.</div>'}
+        <div style="font-weight:700;color:${dogru?'var(--okg)':'var(--kor)'}">${mesaj}</div>
+        ${altNot?`<div class="tiny" style="margin-top:4px">${altNot}</div>`:''}
       </div>
       <button class="btn brand block" style="margin-top:12px" id="tk_next">${st.i+1<total?'Sonraki soru ›':'Bitir'}</button>`;
     $('#tk_next').onclick=()=>{

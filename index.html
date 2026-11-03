@@ -798,56 +798,107 @@ async function renderAnaliz(){
 
 /* ----- RESULT SHEET (ödevden) ----- */
 function openResultSheet({fromOdev}){
-  // ödevden sonuç: ödevi yapıldı yap + kitap testi akışı (test varsa otomatik puanlama)
-  sheet(`<h3>${esc(fromOdev.baslik||'Ödev sonucu')}</h3>
-    <p class="hint">${esc(dersAd(fromOdev.ders_id))}${fromOdev.materyal?' · '+esc(fromOdev.materyal):''}</p>
-    <div id="rsBody"></div>
-    <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:12px">
+  // ödev detayı: bu ödeve bağlı testler + test ekleme + çözme
+  sheet(`<h3>${esc(fromOdev.baslik||'Ödev')}</h3>
+    <p class="hint">${esc(dersAd(fromOdev.ders_id))}${fromOdev.materyal?' · '+esc(fromOdev.materyal):''}${fromOdev.teslim_tarihi?' · teslim '+trDate(fromOdev.teslim_tarihi):''}</p>
+    <div id="rsBody"><div class="sk" style="margin-top:12px"></div></div>
+    <div style="margin-top:16px"><button class="btn block ok" id="rs_done">✓ Ödevi yapıldı işaretle</button></div>
+    <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
       <button class="btn block" style="color:var(--bad);border-color:var(--bad-soft)" onclick="odevSil(${fromOdev.id})">🗑 Ödevi sil</button>
     </div>`);
-  const ctx={test:null,dersId:fromOdev.ders_id,CA:[],MSK:[],hasCA:false,hasMSK:false,answers:{},manualKonu:{},_odev:fromOdev};
-  const body=$('#rsBody');
-  const finish=async()=>{
-    // mark done
-    await db.from('odevler').update({durum:'yapildi'}).eq('id',fromOdev.id);
-  };
-  if(fromOdev.materyal_test_id){
-    db.from('materyal_testleri').select('*').eq('id',fromOdev.materyal_test_id).single().then(async({data:t})=>{
-      const sd=$('#view-sonuc #k_dyn'); if(sd) sd.innerHTML=''; // Sonuç sekmesiyle ID çakışmasını önle
-      $('#rsBody').innerHTML=`<div id="rs_dyn"></div>`;
-      await buildKitapEntry(t, fromOdev.ders_id, $('#rs_dyn'));
-      // override save to also mark odev done, and link to this odev
-      const ctx2=window._kitapCtx; ctx2._odev=fromOdev;
-      $('#k_save').onclick=async()=>{ await saveFromOdev(ctx2); };
-    });
-  } else {
-    // basit D/Y/B + konu
-    body.innerHTML=`<div class="grid3" style="margin-top:6px">
-        <label class="fld" style="margin:0"><span class="lab">Doğru</span><input type="number" min="0" id="r_d" value="0"></label>
-        <label class="fld" style="margin:0"><span class="lab">Yanlış</span><input type="number" min="0" id="r_y" value="0"></label>
-        <label class="fld" style="margin:0"><span class="lab">Boş</span><input type="number" min="0" id="r_b" value="0"></label>
-      </div>
-      <div class="card" style="margin-top:12px;padding:12px;display:flex;justify-content:space-between;align-items:center"><div class="tiny">Net</div><div class="net-big" id="r_net">0,00</div></div>
-      <div id="r_konu"></div>
-      <div class="split" style="margin-top:14px">
-        <button class="btn" id="r_skip">Sadece "yapıldı"</button>
-        <button class="btn brand" id="r_save">Sonucu kaydet</button>
-      </div>`;
-    const upd=()=>$('#r_net').textContent=fnet(+$('#r_d').value||0,+$('#r_y').value||0);
-    ['r_d','r_y','r_b'].forEach(id=>$('#'+id).oninput=upd);
-    // manual konu
-    const ks=S.konByDers[fromOdev.ders_id]||[];
-    $('#r_konu').innerHTML=`<h2 class="sec">Yanlış konular</h2><div class="konu-pick">${ks.map(k=>`<div class="kline"><span class="kn">${esc(k.ad)}</span><div class="step"><button data-k="${k.id}" data-s="-1">−</button><span id="rks_${k.id}">0</span><button data-k="${k.id}" data-s="1">＋</button></div></div>`).join('')}</div>`;
-    $('#r_konu').querySelector('.konu-pick').onclick=e=>{const b=e.target.closest('button');if(!b)return;const id=b.dataset.k;const cur=ctx.manualKonu[id]||0;const nx=Math.max(0,cur+(b.dataset.s==='1'?1:-1));if(nx===0)delete ctx.manualKonu[id];else ctx.manualKonu[id]=nx;$('#rks_'+id).textContent=nx;};
-    $('#r_skip').onclick=async()=>{ await finish(); closeSheet(); toast('Yapıldı olarak işaretlendi'); renderOdev(); };
-    $('#r_save').onclick=async()=>{
-      const d=+$('#r_d').value||0,y=+$('#r_y').value||0,b=+$('#r_b').value||0;
-      await finish();
-      const sRes=await db.from('sonuclar').insert({odev_id:fromOdev.id,ders_id:fromOdev.ders_id,materyal_test_id:fromOdev.materyal_test_id||null,dogru:d,yanlis:y,bos:b}).select('id').single();
-      if(!sRes.error){ const yk=Object.entries(ctx.manualKonu).map(([k,a])=>({sonuc_id:sRes.data.id,konu_id:+k,adet:a})); if(yk.length)await db.from('yanlis_konular').insert(yk); }
-      closeSheet(); toast('Sonuç kaydedildi'); renderOdev();
-    };
+  $('#rs_done').onclick=async()=>{ await db.from('odevler').update({durum:'yapildi'}).eq('id',fromOdev.id); closeSheet(); toast('Yapıldı olarak işaretlendi'); renderOdev(); };
+  renderOdevTests(fromOdev);
+}
+
+async function renderOdevTests(odev){
+  const body=$('#rsBody'); if(!body) return;
+  const {data:links}=await db.from('odev_test')
+    .select('id,materyal_test_id,materyal_testleri(id,unite,bolum,tip,test_no,konu_id,soru_sayisi,materyal_id)')
+    .eq('odev_id',odev.id);
+  const rows=(links||[]).filter(l=>l.materyal_testleri);
+  const tids=rows.map(r=>r.materyal_test_id);
+  const done={};
+  if(tids.length){
+    const {data}=await db.from('sonuclar').select('materyal_test_id,dogru,yanlis,bos,cozum_tarihi')
+      .in('materyal_test_id',tids).order('cozum_tarihi',{ascending:false});
+    (data||[]).forEach(s=>{ if(s.materyal_test_id && !done[s.materyal_test_id]) done[s.materyal_test_id]=s; });
   }
+  // ödev kitabını katalogla eşleştir (serbest metin → materyal)
+  const matched=Object.values(S.matById).find(m=>m.ad===odev.materyal);
+
+  let h=`<h2 class="sec" style="margin-top:4px">Bu ödevin testleri</h2>`;
+  if(rows.length){
+    h+=`<div class="card" style="padding:2px 0;margin-bottom:10px">`+rows.map(r=>{
+      const t=r.materyal_testleri, s=done[r.materyal_test_id];
+      const st= s? `<span class="chip ok">net ${fnet(s.dogru,s.yanlis)}</span>` : `<span class="chip">çözülmedi</span>`;
+      const q=soruStr(t.soru_sayisi);
+      return `<div class="row" style="justify-content:space-between;gap:8px;padding:9px 13px;border-top:1px solid var(--line)">
+        <div style="flex:1;min-width:0;cursor:pointer" onclick="solveOdevTest(${odev.id},${t.id})">
+          <div style="font-weight:650;font-size:13.5px">${esc(testLabel(t))} ›</div>
+          ${q?`<div class="tiny">${q}</div>`:''}
+        </div>
+        ${st}
+        <button class="btn sm" title="Çıkar" onclick="unlinkOdevTest(${r.id},${odev.id})" style="padding:4px 9px;color:var(--bad)">✕</button>
+      </div>`;
+    }).join('')+`</div>`;
+  } else {
+    h+=`<p class="hint" style="margin:6px 0 10px">Henüz test eklenmedi. Öğretmenin verdiği sayfalar hangi test(ler)e denk geliyorsa aşağıdan seçip ekle.</p>`;
+  }
+  h+=`<div class="card" style="padding:12px">
+      <div class="tiny" style="margin-bottom:8px;font-weight:700">Test ekle</div>
+      <label class="fld" style="margin:0 0 8px"><span class="lab">Kitap</span><select id="ot_mat"></select></label>
+      <label class="fld" style="margin:0 0 10px"><span class="lab">Test</span><select id="ot_test"><option value="">— Önce kitap seçin —</option></select></label>
+      <button class="btn brand block" id="ot_add">+ Ekle</button>
+    </div>`;
+  body.innerHTML=h;
+
+  // kitap seçenekleri: eşleşen en üstte, sonra derse göre
+  const mats=[...Object.values(S.matById)].sort((a,b)=>{
+    if(matched){ if(a.id===matched.id)return -1; if(b.id===matched.id)return 1; }
+    return (a.ders_id-b.ders_id) || a.ad.localeCompare(b.ad,'tr');
+  });
+  const ms=$('#ot_mat'), tsel=$('#ot_test');
+  ms.innerHTML=`<option value="">— Seçiniz —</option>`+mats.map(m=>`<option value="${m.id}" ${matched&&m.id===matched.id?'selected':''}>${esc(m.ad)} · ${esc(dersAd(m.ders_id))}</option>`).join('');
+  const linked=new Set(tids);
+  const fillTests=async()=>{
+    if(!ms.value){ tsel.innerHTML='<option value="">— Önce kitap seçin —</option>'; return; }
+    const ts=await testsOf(+ms.value);
+    tsel.innerHTML=`<option value="">— Test seçin —</option>`+ts.map(t=>`<option value="${t.id}" ${linked.has(t.id)?'disabled':''}>${testOpt(t)}${linked.has(t.id)?' • ekli':''}</option>`).join('');
+  };
+  ms.onchange=fillTests;
+  if(ms.value) fillTests();
+  $('#ot_add').onclick=async()=>{
+    const tid=+tsel.value; if(!tid){ toast('Önce test seç'); return; }
+    const {error}=await db.from('odev_test').insert({odev_id:odev.id,materyal_test_id:tid});
+    if(error){ toast(String(error.code)==='23505'?'Bu test zaten ekli':'Eklenemedi'); return; }
+    toast('Test eklendi'); renderOdevTests(odev);
+  };
+}
+
+async function unlinkOdevTest(linkId,odevId){
+  const {error}=await db.from('odev_test').delete().eq('id',linkId);
+  if(error){ toast('Çıkarılamadı'); return; }
+  toast('Test çıkarıldı');
+  const {data}=await db.from('odevler').select('*').eq('id',odevId).single();
+  if(data) renderOdevTests(data);
+}
+
+async function solveOdevTest(odevId,testId){
+  const [oR,tR]=await Promise.all([
+    db.from('odevler').select('*').eq('id',odevId).single(),
+    db.from('materyal_testleri').select('*').eq('id',testId).single()
+  ]);
+  const odev=oR.data, test=tR.data;
+  if(!test){ toast('Test bulunamadı'); return; }
+  const sd=$('#view-sonuc #k_dyn'); if(sd) sd.innerHTML=''; // Sonuç sekmesiyle ID çakışmasını önle
+  sheet(`<button class="btn sm" id="ot_back" style="margin-bottom:8px">‹ Ödeve dön</button>
+    <h3>${esc(testLabel(test))}</h3>
+    <p class="hint">${esc(odev.materyal||dersAd(odev.ders_id))}</p>
+    <div id="rs_dyn"></div>`);
+  $('#ot_back').onclick=()=>openResultSheet({fromOdev:odev});
+  await buildKitapEntry(test, odev.ders_id, $('#rs_dyn'));
+  const ctx2=window._kitapCtx; ctx2._odev=odev;
+  $('#k_save').onclick=async()=>{ await saveFromOdev(ctx2); };
 }
 async function saveFromOdev(ctx){
   let d,y,b;

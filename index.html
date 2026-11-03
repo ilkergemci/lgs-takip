@@ -300,8 +300,10 @@ async function renderOzet(){
     db.from('yanlis_konular').select('konu_id,adet')
   ]);
   const odev=odevR.data||[], son=sonR.data||[], yk=ykR.data||[];
-  const bekle=odev.filter(o=>o.durum!=='yapildi');
-  const gecikti=bekle.filter(o=>o.teslim_tarihi && o.teslim_tarihi<todayISO());
+  const today=todayISO();
+  const notDone=odev.filter(o=>o.durum!=='yapildi');
+  const gecikti=notDone.filter(o=>o.teslim_tarihi && o.teslim_tarihi<today);   // teslim geçmiş
+  const bekle=notDone.filter(o=>!(o.teslim_tarihi && o.teslim_tarihi<today));  // veriliş–teslim arası (aktif)
   const haftaBasi=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
   const buHafta=son.filter(s=>s.cozum_tarihi>=haftaBasi).length;
   // weak topics

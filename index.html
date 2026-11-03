@@ -95,8 +95,11 @@
   .fab{position:fixed;right:18px;bottom:calc(82px + env(safe-area-inset-bottom));z-index:41;width:56px;height:56px;border-radius:18px;background:var(--brand);color:var(--brand-ink);border:none;box-shadow:0 8px 24px color-mix(in srgb,var(--brand) 45%,transparent);font-size:26px;cursor:pointer;display:grid;place-items:center}
   .sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(10,14,28,.5);backdrop-filter:blur(2px);display:none;align-items:flex-end;justify-content:center}
   .sheet-bg.open{display:flex}
-  .sheet{background:var(--surface);width:100%;max-width:760px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:8px 16px calc(24px + env(safe-area-inset-bottom));border:1px solid var(--line);border-bottom:none}
+  .sheet{position:relative;background:var(--surface);width:100%;max-width:760px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:52px 16px calc(24px + env(safe-area-inset-bottom));border:1px solid var(--line);border-bottom:none}
   .grab{width:40px;height:4px;border-radius:999px;background:var(--line);margin:8px auto 10px}
+  .sheet-close{position:absolute;top:12px;left:14px;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-size:18px;line-height:1;cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center}
+  .sheet-close:active{background:var(--line)}
+  .sheet .grab{position:absolute;top:9px;left:50%;transform:translateX(-50%);margin:0}
   .sheet h3{margin:4px 2px 2px;font-size:19px;font-weight:760;letter-spacing:-.3px}
   .sheet .hint{font-size:13px;color:var(--ink-3);margin:0 2px 8px}
   /* Optik cevap formu — sınav kapısı tonu (pembe-kahve) */
@@ -153,7 +156,7 @@
 
 <header class="top hidden" id="appTop">
   <div class="top-in">
-    <div class="logo">LGS</div>
+    <button class="icon-btn" id="homeBtn" title="Ana menü" style="margin-right:4px;font-size:18px">⌂</button>
     <div>
       <h1 id="viewTitle">Özet</h1>
       <div class="sub" id="viewSub">Genel durum</div>
@@ -843,15 +846,16 @@ async function saveFromOdev(ctx){
 }
 
 /* ---------- SHEET ---------- */
-function sheet(html){ $('#sheet').innerHTML=`<div class="grab"></div>`+html; $('#sheetBg').classList.add('open'); }
+function sheet(html){ $('#sheet').innerHTML=`<button class="sheet-close" onclick="closeSheet()" title="Kapat (kaydetmeden)" aria-label="Kapat">✕</button><div class="grab"></div>`+html; $('#sheetBg').classList.add('open'); }
 function closeSheet(){ $('#sheetBg').classList.remove('open'); }
-$('#sheetBg').addEventListener('click',e=>{ if(e.target.id==='sheetBg') closeSheet(); });
+/* dışarı tıklayınca kapanmaz; yalnızca ✕ ile kapanır */
 
 /* ---------- BOOT ---------- */
 async function startApp(){
   $('#appTop').classList.remove('hidden'); $('#app').classList.remove('hidden'); $('#nav').classList.remove('hidden'); $('#fab').classList.remove('hidden');
   $$('#nav .tab').forEach(b=>b.onclick=()=>setView(b.dataset.v));
   $('#themeBtn').onclick=toggleTheme;
+  $('#homeBtn').onclick=()=>setView('ozet');
   $('#refreshBtn').onclick=()=>setView(S.view);
   $('#fab').onclick=()=>{ if(S.view==='odev') openOdevForm(); else setView('sonuc'); };
   try{ await loadCatalog(); }

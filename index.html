@@ -377,13 +377,13 @@ async function renderOdev(){
     const col = o.durum==='yapildi'?'ok':(gec?'bad':'warn');
     return `<div class="item">
       <div class="dot" style="background:var(--${col})"></div>
-      <div style="flex:1;min-width:0">
-        <div class="t">${esc(o.baslik||'Ödev')}</div>
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="odevAc(${o.id})" title="Detay / sonuç gir">
+        <div class="t">${esc(o.baslik||'Ödev')} <span style="color:var(--ink-3);font-weight:600">›</span></div>
         <div class="d">${esc(o.kurum||srcLabel[o.kaynak]||o.kaynak)} · ${dersAd(o.ders_id)}${o.materyal?' · '+esc(o.materyal):''}${o.teslim_tarihi?' · teslim '+trDate(o.teslim_tarihi):''}</div>
       </div>
       ${o.durum==='yapildi'
         ? `<span class="chip ok">✓</span>`
-        : `<button class="btn sm ok" onclick="markDone(${o.id})">Yapıldı</button>`}
+        : `<button class="btn sm ok" onclick="odevYapildi(${o.id})">Yapıldı</button>`}
       <button class="icon-btn" style="width:32px;height:32px;font-size:14px" onclick="delOdev(${o.id})">🗑</button>
     </div>`;
   };
@@ -396,10 +396,15 @@ async function renderOdev(){
   });
   list.innerHTML=html;
 }
-async function markDone(id){
+async function odevAc(id){
   const {data}=await db.from('odevler').select('*').eq('id',id).single();
-  // sonuç girmek ister mi? test ödeviyse sonuç akışına yönlendir
+  // ödev detayı: sonuç/optik form akışına gir
   openResultSheet({fromOdev:data});
+}
+async function odevYapildi(id){
+  const {error}=await db.from('odevler').update({durum:'yapildi'}).eq('id',id);
+  if(error){ toast('Güncellenemedi'); return; }
+  toast('Yapıldı olarak işaretlendi'); renderOdev();
 }
 async function delOdev(id){
   if(!confirm('Bu ödev silinsin mi?')) return;

@@ -382,7 +382,6 @@ async function renderOdev(){
         <div class="d">${esc(o.kurum||srcLabel[o.kaynak]||o.kaynak)} · ${dersAd(o.ders_id)}${o.materyal?' · '+esc(o.materyal):''}${o.teslim_tarihi?' · teslim '+trDate(o.teslim_tarihi):''}</div>
       </div>
       ${o.durum==='yapildi' ? `<span class="chip ok">✓</span>` : ''}
-      <button class="icon-btn" style="width:32px;height:32px;font-size:14px" onclick="delOdev(${o.id})">🗑</button>
     </div>`;
   };
   const groups={}; data.forEach(o=>{(groups[o.kaynak]=groups[o.kaynak]||[]).push(o);});

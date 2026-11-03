@@ -491,8 +491,8 @@ function renderKitapForm(){
   testSel.onchange=()=>{ const t=(testSel._ts||[]).find(x=>x.id==testSel.value); if(t) buildKitapEntry(t, +$('#k_ders').value); else $('#k_dyn').innerHTML=''; };
 }
 
-async function buildKitapEntry(test, dersId){
-  const dyn=$('#k_dyn');
+async function buildKitapEntry(test, dersId, dynEl){
+  const dyn=dynEl||$('#k_dyn');
   dyn.innerHTML=`<div class="sk" style="margin-top:12px"></div>`;
   const [caR, mskR, prevR]=await Promise.all([
     db.from('cevap_anahtari').select('soru_no,dogru_cevap').eq('materyal_test_id',test.id).order('soru_no'),
@@ -754,10 +754,17 @@ async function toggleKitapTests(mid){
     (data||[]).forEach(s=>{ if(!s.materyal_test_id)return; cnt[s.materyal_test_id]=(cnt[s.materyal_test_id]||0)+1; if(!done[s.materyal_test_id]) done[s.materyal_test_id]={d:s.dogru,y:s.yanlis}; });
   }
   if(!ts.length){box.innerHTML='<div class="tiny muted" style="padding:6px">Bu kitapta test kaydı yok.</div>';return;}
+  const mat=S.matById[mid]||{};
   box.innerHTML=`<div class="konu-pick" style="max-height:320px">${ts.map(t=>{
     const dn=done[t.id]; const n=cnt[t.id]||0; const q=soruStr(t.soru_sayisi);
-    return `<div class="kline"><span class="kn" style="font-size:13px">${esc(testLabel(t))}${q?` <span style="color:var(--ink-3);font-weight:500">· ${q}</span>`:''}</span>${dn?`<span class="chip ok" style="font-size:11px">✓ net ${fnet(dn.d,dn.y)}${n>1?` · ${n}×`:''}</span>`:`<span class="chip" style="font-size:11px">yapılmadı</span>`}</div>`;
+    return `<div class="kline" data-tid="${t.id}" style="cursor:pointer"><span class="kn" style="font-size:13px">${esc(testLabel(t))}${q?` <span style="color:var(--ink-3);font-weight:500">· ${q}</span>`:''} <span style="color:var(--ink-3)">›</span></span>${dn?`<span class="chip ok" style="font-size:11px">✓ net ${fnet(dn.d,dn.y)}${n>1?` · ${n}×`:''}</span>`:`<span class="chip" style="font-size:11px">yapılmadı</span>`}</div>`;
   }).join('')}</div>`;
+  box.querySelector('.konu-pick').onclick=e=>{ const row=e.target.closest('.kline'); if(!row)return; const t=ts.find(x=>x.id==row.dataset.tid); if(t) openKitapTest(t, mat.ders_id, mat.ad); };
+}
+function openKitapTest(test, dersId, matName){
+  const sd=$('#view-sonuc #k_dyn'); if(sd) sd.innerHTML=''; // Sonuç sekmesiyle ID çakışmasını önle
+  sheet(`<h3>${esc(testLabel(test))}</h3><p class="hint">${esc(matName||'')}</p><div id="kt_dyn"></div>`);
+  buildKitapEntry(test, dersId, $('#kt_dyn'));
 }
 
 /* ----- ANALİZ ----- */
@@ -806,10 +813,9 @@ function openResultSheet({fromOdev}){
   };
   if(fromOdev.materyal_test_id){
     db.from('materyal_testleri').select('*').eq('id',fromOdev.materyal_test_id).single().then(async({data:t})=>{
-      $('#rsBody').innerHTML='<div class="sk"></div>';
-      // reuse buildKitapEntry by injecting dyn container
-      $('#rsBody').innerHTML=`<div id="k_dyn"></div>`;
-      await buildKitapEntry(t, fromOdev.ders_id);
+      const sd=$('#view-sonuc #k_dyn'); if(sd) sd.innerHTML=''; // Sonuç sekmesiyle ID çakışmasını önle
+      $('#rsBody').innerHTML=`<div id="rs_dyn"></div>`;
+      await buildKitapEntry(t, fromOdev.ders_id, $('#rs_dyn'));
       // override save to also mark odev done, and link to this odev
       const ctx2=window._kitapCtx; ctx2._odev=fromOdev;
       $('#k_save').onclick=async()=>{ await saveFromOdev(ctx2); };

@@ -243,7 +243,7 @@ async function loadCatalog(){
 const dersAd = id => (S.dersler.find(d=>d.id==id)||{}).ad || "—";
 
 async function testsOf(materyalId){
-  const {data,error}=await db.from('materyal_testleri').select('id,unite,bolum,tip,test_no,konu_id').eq('materyal_id',materyalId).order('test_no');
+  const {data,error}=await db.from('materyal_testleri').select('id,unite,bolum,tip,test_no,konu_id,soru_sayisi').eq('materyal_id',materyalId).order('test_no');
   if(error){toast('Testler yüklenemedi');return[];}
   return data;
 }
@@ -252,6 +252,8 @@ function testLabel(t){
   if(t.test_no!=null){ const b=(t.bolum && t.bolum!=='Test')? t.bolum : 'Test'; s += (s?' · ':'')+b+' '+t.test_no; }
   return s || ('Test #'+t.id);
 }
+function soruStr(n){ return (n!=null && +n>0)? (+n)+' soru' : ''; }
+function testOpt(t){ const q=soruStr(t.soru_sayisi); return esc(testLabel(t))+(q?' ('+q+')':''); }
 
 /* ---------- VIEWS ---------- */
 const TITLES={ozet:['Özet','Genel durum'],kitap:['Kitaplar','Kitap bazında ilerleme'],odev:['Ödevler','Okul & dershane ödevleri'],sonuc:['Sonuç Gir','Test & deneme sonuçları'],analiz:['Analiz','Konu bazında zayıflık']};
@@ -406,7 +408,7 @@ function openOdevForm(){
   const matSel=$('#of_mat'), testSel=$('#of_test');
   function fillMat(){ const did=$('#of_ders').value; const ms=S.matByDers[did]||[]; matSel.innerHTML='<option value="">— Seçiniz —</option>'+ms.map(m=>`<option value="${m.id}">${esc(m.ad)}</option>`).join(''); $('#of_testWrap').style.display='none'; }
   $('#of_ders').onchange=fillMat; fillMat();
-  matSel.onchange=async()=>{ const mid=matSel.value; if(!mid){$('#of_testWrap').style.display='none';return;} const ts=await testsOf(mid); testSel.innerHTML='<option value="">— Seçiniz —</option>'+ts.map(t=>`<option value="${t.id}">${esc(testLabel(t))}</option>`).join(''); $('#of_testWrap').style.display='block'; testSel.onchange=()=>{ if(testSel.value && !$('#of_baslik').value){ const t=ts.find(x=>x.id==testSel.value); $('#of_baslik').value=testLabel(t);} }; };
+  matSel.onchange=async()=>{ const mid=matSel.value; if(!mid){$('#of_testWrap').style.display='none';return;} const ts=await testsOf(mid); testSel.innerHTML='<option value="">— Seçiniz —</option>'+ts.map(t=>`<option value="${t.id}">${testOpt(t)}</option>`).join(''); $('#of_testWrap').style.display='block'; testSel.onchange=()=>{ if(testSel.value && !$('#of_baslik').value){ const t=ts.find(x=>x.id==testSel.value); $('#of_baslik').value=testLabel(t);} }; };
   $('#of_save').onclick=async()=>{
     const ders=$('#of_ders').value, baslik=$('#of_baslik').value.trim();
     if(!baslik){toast('Başlık gir');return;}
@@ -447,7 +449,7 @@ function renderKitapForm(){
   const matSel=$('#k_mat'), testSel=$('#k_test');
   function fillMat(){ const did=$('#k_ders').value; const ms=S.matByDers[did]||[]; matSel.innerHTML='<option value="">— Seçiniz —</option>'+ms.map(m=>`<option value="${m.id}">${esc(m.ad)}</option>`).join(''); testSel.innerHTML='<option value="">— Önce kitap seçin —</option>'; $('#k_dyn').innerHTML=''; }
   $('#k_ders').onchange=fillMat; fillMat();
-  matSel.onchange=async()=>{ $('#k_dyn').innerHTML=''; if(!matSel.value){testSel.innerHTML='<option value="">— Önce kitap seçin —</option>';return;} const ts=await testsOf(matSel.value); testSel._ts=ts; testSel.innerHTML='<option value="">— Seçiniz —</option>'+ts.map(t=>`<option value="${t.id}">${esc(testLabel(t))}</option>`).join(''); };
+  matSel.onchange=async()=>{ $('#k_dyn').innerHTML=''; if(!matSel.value){testSel.innerHTML='<option value="">— Önce kitap seçin —</option>';return;} const ts=await testsOf(matSel.value); testSel._ts=ts; testSel.innerHTML='<option value="">— Seçiniz —</option>'+ts.map(t=>`<option value="${t.id}">${testOpt(t)}</option>`).join(''); };
   testSel.onchange=()=>{ const t=(testSel._ts||[]).find(x=>x.id==testSel.value); if(t) buildKitapEntry(t, +$('#k_ders').value); else $('#k_dyn').innerHTML=''; };
 }
 
@@ -655,7 +657,7 @@ async function renderKitap(){
     html+=`<div class="card" style="padding:0;margin-bottom:10px">
       <button class="kitap-head" data-m="${r.materyal_id}" style="width:100%;text-align:left;border:none;background:transparent;padding:14px;cursor:pointer;color:inherit;font:inherit">
         <div class="row" style="justify-content:space-between;gap:10px;align-items:flex-start">
-          <div style="min-width:0;flex:1"><div style="font-weight:680;font-size:14.5px">${esc(r.ad)}</div><div style="font-size:12px;color:var(--ink-3);margin-top:1px">${esc(r.yayin||'')}${r.tur?' · '+esc(r.tur):''}</div></div>
+          <div style="min-width:0;flex:1"><div style="font-weight:680;font-size:14.5px">${esc(r.ad)}</div><div style="font-size:12px;color:var(--ink-3);margin-top:1px">${esc(r.yayin||'')}${r.tur?' · '+esc(r.tur):''}${r.soru_toplam>0?' · '+r.soru_toplam+' soru':''}</div></div>
           <span class="chip ${pct>=100?'ok':(pct>0?'brand':'')}">${r.yapilan}/${r.toplam} · %${pct}</span>
         </div>
         <div class="bar" style="margin-top:9px"><i style="width:${pct}%"></i></div>
@@ -680,8 +682,8 @@ async function toggleKitapTests(mid){
   }
   if(!ts.length){box.innerHTML='<div class="tiny muted" style="padding:6px">Bu kitapta test kaydı yok.</div>';return;}
   box.innerHTML=`<div class="konu-pick" style="max-height:320px">${ts.map(t=>{
-    const dn=done[t.id];
-    return `<div class="kline"><span class="kn" style="font-size:13px">${esc(testLabel(t))}</span>${dn?`<span class="chip ok" style="font-size:11px">✓ net ${fnet(dn.d,dn.y)}</span>`:`<span class="chip" style="font-size:11px">yapılmadı</span>`}</div>`;
+    const dn=done[t.id]; const q=soruStr(t.soru_sayisi);
+    return `<div class="kline"><span class="kn" style="font-size:13px">${esc(testLabel(t))}${q?` <span style="color:var(--ink-3);font-weight:500">· ${q}</span>`:''}</span>${dn?`<span class="chip ok" style="font-size:11px">✓ net ${fnet(dn.d,dn.y)}</span>`:`<span class="chip" style="font-size:11px">yapılmadı</span>`}</div>`;
   }).join('')}</div>`;
 }
 

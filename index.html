@@ -99,19 +99,21 @@
   .grab{width:40px;height:4px;border-radius:999px;background:var(--line);margin:8px auto 10px}
   .sheet h3{margin:4px 2px 2px;font-size:19px;font-weight:760;letter-spacing:-.3px}
   .sheet .hint{font-size:13px;color:var(--ink-3);margin:0 2px 8px}
-  /* Optik cevap formu */
-  .optik-wrap{border:1.5px solid var(--line);border-radius:12px;overflow:hidden;margin-top:10px;background:var(--surface)}
-  .optik-head{background:var(--surface-2);text-align:center;font-weight:800;font-size:12px;letter-spacing:.16em;padding:9px;border-bottom:1.5px solid var(--line);color:var(--ink-2)}
+  /* Optik cevap formu — sınav kapısı tonu (pembe-kahve) */
+  .optik-wrap{--opk-line:#c98f7c;--opk-ink:#9c5742;--opk-head:#f6e6de;--okg:#1f9d3f;--kor:#d83b3b;border:2px solid var(--opk-line);border-radius:12px;overflow:hidden;margin-top:10px;background:var(--surface)}
+  .optik-head{background:var(--opk-head);text-align:center;font-weight:800;font-size:12px;letter-spacing:.18em;padding:9px;border-bottom:2px solid var(--opk-line);color:var(--opk-ink)}
   .answers{display:grid;grid-template-columns:1fr;gap:0}
-  @media(min-width:440px){ .answers{grid-template-columns:1fr 1fr} .answers .acell:nth-child(odd){border-right:1px solid var(--line)} }
-  .acell{display:flex;align-items:center;gap:9px;padding:6px 11px;border-bottom:1px solid var(--line)}
-  .acell .qn{width:24px;text-align:center;font-weight:800;font-size:13px;color:var(--ink-2);flex:none}
-  .acell .opts{display:flex;gap:9px;flex:1;justify-content:flex-start}
-  .acell .opts b{width:30px;height:30px;line-height:27px;text-align:center;border:1.6px solid var(--line);border-radius:50%;font-size:12px;font-weight:700;color:var(--ink-3);cursor:pointer;background:var(--surface);transition:background .08s,border-color .08s,color .08s;-webkit-tap-highlight-color:transparent}
-  .acell .opts b.on{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
-  .acell.correct .opts b.on{background:var(--ok);border-color:var(--ok);color:#fff}
-  .acell.wrong .opts b.on{background:var(--bad);border-color:var(--bad);color:#fff}
-  .acell.wrong .opts b.key{border-color:var(--ok);color:var(--ok);box-shadow:inset 0 0 0 1.5px var(--ok)}
+  @media(min-width:440px){ .answers{grid-template-columns:1fr 1fr} .answers .acell:nth-child(odd){border-right:2px solid var(--opk-line)} }
+  .acell{display:flex;align-items:center;gap:9px;padding:7px 11px;border-bottom:1.5px solid var(--opk-line)}
+  .acell .qn{width:24px;text-align:center;font-weight:800;font-size:13px;color:var(--opk-ink);flex:none}
+  .acell .opts{display:flex;gap:11px;flex:1;justify-content:flex-start}
+  .acell .opts b{width:30px;height:30px;line-height:26px;text-align:center;border:2px solid var(--opk-line);border-radius:50%;font-size:12px;font-weight:700;color:var(--opk-ink);cursor:pointer;background:var(--surface);transition:background .1s,box-shadow .1s,color .1s;-webkit-tap-highlight-color:transparent}
+  /* öğrenci işareti — sınav sürerken kutunun içi dolu */
+  .acell .opts b.marked{background:var(--opk-ink);border-color:var(--opk-ink);color:#fff}
+  /* kontrol sonrası */
+  .acell .opts b.ringok{box-shadow:0 0 0 3px var(--okg)}                                  /* doğru işaret → kalın yeşil halka */
+  .acell .opts b.ringko{box-shadow:0 0 0 3px var(--kor)}                                  /* yanlış işaret → kalın kırmızı halka */
+  .acell .opts b.fillok{background:var(--okg);border-color:var(--okg);color:#fff}         /* doğru şıkkın içi yeşil dolu */
   .konu-pick{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px;margin-top:6px}
   .kline{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:9px}
   .kline:nth-child(odd){background:var(--surface-2)}
@@ -478,9 +480,9 @@ async function buildKitapEntry(test, dersId){
    </div>`;
 
   if(hasCA){
-    html+=`<p class="hint" style="margin-top:10px">Çocuk cevap formundan işaretlesin — boş bırakılanlar "boş" sayılır. D/Y/B ve ${hasMSK?'yanlış konular ':''}otomatik hesaplanır.</p>
+    html+=`<p class="hint" style="margin-top:10px">Öğrenci şıkları işaretlesin. Bitince <b>Kontrol et</b>'e bas — doğru/yanlış, boşlar ve ${hasMSK?'yanlış konular ':''}o zaman gösterilir.</p>
       <div class="optik-wrap"><div class="optik-head">CEVAP FORMU</div><div class="answers" id="ansGrid"></div></div>
-      <div class="split" style="margin-top:10px"><button class="btn sm" id="clrAns">Temizle</button></div>`;
+      <div class="split" style="margin-top:10px;gap:8px"><button class="btn sm" id="clrAns">Temizle</button><button class="btn brand" id="k_check" style="flex:1">Sınav bitti · Kontrol et</button></div>`;
   } else {
     html+=`<p class="hint" style="margin-top:10px">Doğru / yanlış / boş sayılarını gir.</p>
       <div class="grid3" style="margin-top:4px">
@@ -504,11 +506,12 @@ async function buildKitapEntry(test, dersId){
     g.innerHTML=CA.map(c=>`<div class="acell" data-q="${c.soru_no}"><div class="qn">${c.soru_no}</div><div class="opts">${['A','B','C','D'].map(o=>`<b data-o="${o}">${o}</b>`).join('')}</div></div>`).join('');
     g.onclick=e=>{ const b=e.target.closest('b'); if(!b)return; const cell=b.closest('.acell'); const q=+cell.dataset.q; const o=b.dataset.o;
       if(ctx.answers[q]===o){ delete ctx.answers[q]; } else { ctx.answers[q]=o; }
-      $$('b',cell).forEach(x=>x.classList.toggle('on',ctx.answers[q]===x.dataset.o));
-      gradeCA(ctx);
+      $$('b',cell).forEach(x=>x.classList.toggle('marked',ctx.answers[q]===x.dataset.o));
+      if(ctx.checked) resetCheck(ctx); // işaret değişirse sınav moduna dön
     };
-    $('#clrAns').onclick=()=>{ ctx.answers={}; $$('#ansGrid .acell').forEach(c=>{c.classList.remove('correct','wrong');$$('b',c).forEach(x=>x.classList.remove('on'));}); gradeCA(ctx); };
-    gradeCA(ctx);
+    $('#clrAns').onclick=()=>{ ctx.answers={}; $$('#ansGrid .opts b').forEach(x=>x.classList.remove('marked')); resetCheck(ctx); };
+    $('#k_check').onclick=()=>{ if(!Object.keys(ctx.answers).length){toast('Önce şıkları işaretle');return;} gradeCA(ctx); ctx.checked=true; $('#k_check').disabled=true; $('#k_save').disabled=false; };
+    resetCheck(ctx);
   } else {
     const upd=()=>{ const d=+$('#m_d').value||0,y=+$('#m_y').value||0,b=+$('#m_b').value||0; $('#netOut').textContent=fnet(d,y); $('#dybOut').textContent=`${d} / ${y} / ${b}`; };
     ['m_d','m_y','m_b'].forEach(id=>$('#'+id).oninput=upd); upd();
@@ -517,11 +520,30 @@ async function buildKitapEntry(test, dersId){
   $('#k_save').onclick=()=>saveKitapResult(ctx);
 }
 
+function resetCheck(ctx){
+  ctx.checked=false;
+  $$('#ansGrid .opts b').forEach(x=>x.classList.remove('fillok','ringok','ringko'));
+  $('#netOut').textContent='—'; $('#dybOut').textContent='—';
+  const kc=$('#k_check'); if(kc)kc.disabled=false;
+  const ks=$('#k_save'); if(ks)ks.disabled=true;
+  if(ctx.hasMSK){ ctx.autoKonu={}; renderAutoKonu(ctx); }
+}
 function gradeCA(ctx){
   let d=0,y=0,b=0; const wrongQs=[];
   ctx.CA.forEach(c=>{ const a=ctx.answers[c.soru_no]; if(!a){b++;} else if(a===c.dogru_cevap){d++;} else {y++; wrongQs.push(c.soru_no);} });
   $('#netOut').textContent=fnet(d,y); $('#dybOut').textContent=`${d} / ${y} / ${b}`;
-  $$('#ansGrid .acell').forEach(cell=>{ const q=+cell.dataset.q; cell.classList.remove('correct','wrong'); $$('b',cell).forEach(x=>x.classList.remove('key')); if(ctx.answers[q]){ const corr=ctx.CA.find(c=>c.soru_no==q).dogru_cevap; const ok=ctx.answers[q]===corr; cell.classList.add(ok?'correct':'wrong'); if(!ok){ const kb=$$('b',cell).find(x=>x.dataset.o===corr); if(kb)kb.classList.add('key'); } } });
+  $$('#ansGrid .acell').forEach(cell=>{
+    const q=+cell.dataset.q;
+    const corr=(ctx.CA.find(c=>c.soru_no==q)||{}).dogru_cevap;
+    const a=ctx.answers[q];
+    $$('b',cell).forEach(x=>x.classList.remove('fillok','ringok','ringko'));
+    // doğru şıkkın içini her durumda yeşil doldur (doğru / yanlış / boş)
+    const cb=$$('b',cell).find(x=>x.dataset.o===corr); if(cb)cb.classList.add('fillok');
+    if(a){
+      const mb=$$('b',cell).find(x=>x.dataset.o===a);
+      if(mb) mb.classList.add(a===corr?'ringok':'ringko'); // doğru→yeşil halka, yanlış→kırmızı halka
+    }
+  });
   ctx._dyb={d,y,b}; ctx._wrongQs=wrongQs;
   // auto konu from MSK
   if(ctx.hasMSK){

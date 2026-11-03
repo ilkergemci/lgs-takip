@@ -193,11 +193,20 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"></script>
+<script>/* CDN yedeği: jsdelivr yüklenmezse unpkg'den dene */
+if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"><\/script>');}</script>
 <script>
 /* ---------- CONFIG ---------- */
 const SB_URL = "https://gplfwgtegmxdsemsiszf.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwbGZ3Z3RlZ214ZHNlbXNpc3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MzAxMTUsImV4cCI6MjEwOTEwNjExNX0.aa4slgeXqrFvK9zvo0NAECiHmUkg_fjlepCk00gdPaQ";
 const APP_PIN = "2026"; // İsterseniz bu satırı değiştirin
+if(!window.supabase || !window.supabase.createClient){
+  document.body.innerHTML='<div style="padding:46px 24px;max-width:420px;margin:40px auto;text-align:center;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#444">'
+    +'<div style="font-size:40px">📶</div><h2 style="margin:12px 0 6px">Sayfa yüklenemedi</h2>'
+    +'<p style="color:#777;font-size:14px;line-height:1.5">Bağlantı kütüphanesi indirilemedi. İnternet/VPN bağlantını kontrol edip sayfayı yenile.</p>'
+    +'<button onclick="location.reload()" style="margin-top:14px;padding:11px 22px;font-size:15px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer">Yenile</button></div>';
+  throw new Error('supabase kütüphanesi yüklenemedi');
+}
 const { createClient } = window.supabase;
 const db = createClient(SB_URL, SB_KEY);
 

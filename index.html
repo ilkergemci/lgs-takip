@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>LGS Takip</title>
 <meta name="description" content="Oğlumun LGS hazırlığı için ödev ve deneme takip paneli">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#f3f5fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1222" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="LGS Takip">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <style>
   :root{
     --bg:#f3f5fb; --surface:#ffffff; --surface-2:#f7f9ff; --line:#e4e8f3;
@@ -1209,6 +1218,12 @@ async function startApp(){
   setView('ozet');
 }
 openGate();
+</script>
+<script>
+/* PWA: service worker kaydı */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 </script>
 </body>
 </html>

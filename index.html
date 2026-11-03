@@ -802,11 +802,9 @@ function openResultSheet({fromOdev}){
   sheet(`<h3>${esc(fromOdev.baslik||'Ödev')}</h3>
     <p class="hint">${esc(dersAd(fromOdev.ders_id))}${fromOdev.materyal?' · '+esc(fromOdev.materyal):''}${fromOdev.teslim_tarihi?' · teslim '+trDate(fromOdev.teslim_tarihi):''}</p>
     <div id="rsBody"><div class="sk" style="margin-top:12px"></div></div>
-    <div style="margin-top:16px"><button class="btn block ok" id="rs_done">✓ Ödevi yapıldı işaretle</button></div>
-    <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+    <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
       <button class="btn block" style="color:var(--bad);border-color:var(--bad-soft)" onclick="odevSil(${fromOdev.id})">🗑 Ödevi sil</button>
     </div>`);
-  $('#rs_done').onclick=async()=>{ await db.from('odevler').update({durum:'yapildi'}).eq('id',fromOdev.id); closeSheet(); toast('Yapıldı olarak işaretlendi'); renderOdev(); };
   renderOdevTests(fromOdev);
 }
 
@@ -904,10 +902,19 @@ async function saveFromOdev(ctx){
   let d,y,b;
   if(ctx.hasCA){({d,y,b}=ctx._dyb||{d:0,y:0,b:0}); if(d+y+b===0){toast('Şıkları işaretle');return;}}
   else {d=+$('#m_d').value||0;y=+$('#m_y').value||0;b=+$('#m_b').value||0;}
-  await db.from('odevler').update({durum:'yapildi'}).eq('id',ctx._odev.id);
   const sRes=await db.from('sonuclar').insert({odev_id:ctx._odev.id,ders_id:ctx.dersId,materyal_test_id:ctx.test.id,dogru:d,yanlis:y,bos:b,cozum_tarihi:$('#k_date').value||todayISO()}).select('id').single();
   if(!sRes.error){ const konu=ctx.hasMSK?(ctx.autoKonu||{}):(ctx.manualKonu||{}); const yk=Object.entries(konu).map(([k,a])=>({sonuc_id:sRes.data.id,konu_id:+k,adet:a})); if(yk.length)await db.from('yanlis_konular').insert(yk); }
-  closeSheet(); toast(`Kaydedildi · net ${fnet(d,y)}`); renderOdev();
+  // Otomatik tescil: ödeve bağlı TÜM testler çözüldüyse ödevi "yapıldı" yap
+  const {data:links}=await db.from('odev_test').select('materyal_test_id').eq('odev_id',ctx._odev.id);
+  const tids=(links||[]).map(l=>l.materyal_test_id);
+  let allDone=tids.length>0;
+  if(tids.length){
+    const {data:res}=await db.from('sonuclar').select('materyal_test_id').eq('odev_id',ctx._odev.id).in('materyal_test_id',tids);
+    const solved=new Set((res||[]).map(r=>r.materyal_test_id));
+    allDone=tids.every(t=>solved.has(t));
+  }
+  if(allDone) await db.from('odevler').update({durum:'yapildi'}).eq('id',ctx._odev.id);
+  closeSheet(); toast(allDone?`Kaydedildi · ödev yapıldı · net ${fnet(d,y)}`:`Kaydedildi · net ${fnet(d,y)}`); renderOdev();
 }
 
 /* ---------- SHEET ---------- */

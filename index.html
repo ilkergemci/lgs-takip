@@ -315,13 +315,13 @@ async function renderOzet(){
 
   el.innerHTML = `
     <div class="grid3" style="margin-top:16px">
-      <div class="stat"><div class="n">${bekle.length}</div><div class="l">Bekleyen ödev</div></div>
-      <div class="stat"><div class="n" style="color:var(--${gecikti.length?'bad':'ink'})">${gecikti.length}</div><div class="l">Geciken</div></div>
-      <div class="stat"><div class="n">${buHafta}</div><div class="l">Bu hafta çözülen</div></div>
+      <div class="stat" role="button" tabindex="0" style="cursor:pointer" onclick="goOdev('bekliyor')"><div class="n">${bekle.length}</div><div class="l">Bekleyen ödev ›</div></div>
+      <div class="stat" role="button" tabindex="0" style="cursor:pointer" onclick="goOdev('bekliyor')"><div class="n" style="color:var(--${gecikti.length?'bad':'ink'})">${gecikti.length}</div><div class="l">Geciken ›</div></div>
+      <div class="stat" role="button" tabindex="0" style="cursor:pointer" onclick="goOdev('yapildi')"><div class="n">${buHafta}</div><div class="l">Bu hafta çözülen ›</div></div>
     </div>
 
     <h2 class="sec">En zayıf konular</h2>
-    <div class="card pad">
+    <div class="card pad" ${weak.length?'role="button" tabindex="0" style="cursor:pointer" onclick="setView(\'analiz\')"':''}>
       ${weak.length? weak.map(w=>`
         <div style="margin-top:2px">
           <div class="barrow"><div class="nm">${esc(w.k.ad)} <span class="tiny">· ${dersAd(w.k.ders_id)}</span></div><span class="chip bad">${w.n} yanlış</span></div>
@@ -347,6 +347,7 @@ async function renderOzet(){
 
 /* ----- ÖDEVLER ----- */
 let odevFilter='bekliyor';
+function goOdev(f){ odevFilter=f||'bekliyor'; setView('odev'); }
 async function renderOdev(){
   const el=$('#view-odev');
   el.innerHTML=`<div style="margin-top:16px" class="seg" id="ofSeg">

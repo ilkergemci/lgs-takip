@@ -993,6 +993,53 @@ function openKitapTest(test, dersId, matName){
 let analizDers='';
 function kisaKitap(s){ s=s||''; return s.length>26 ? s.slice(0,24)+'…' : s; }
 function basariClass(b){ return b>=70?'ok':(b>=40?'warn':'bad'); }
+let analizPeriod='gun';
+function niceMax(v){ v=Math.max(1,v); const p=Math.pow(10,Math.floor(Math.log10(v))); const n=v/p; const m=n<=1?1:n<=2?2:n<=5?5:10; return m*p; }
+function periodKey(iso, period){
+  if(!iso) return null; const [y,m,d]=iso.split('-').map(Number); if(!y||!m||!d) return null;
+  if(period==='ay') return {key:`${y}-${String(m).padStart(2,'0')}`, label:`${String(m).padStart(2,'0')}.${String(y).slice(2)}`};
+  if(period==='hafta'){ const dt=new Date(Date.UTC(y,m-1,d)); const off=(dt.getUTCDay()+6)%7; dt.setUTCDate(dt.getUTCDate()-off);
+    const wy=dt.getUTCFullYear(),wm=dt.getUTCMonth()+1,wd=dt.getUTCDate();
+    return {key:`${wy}-${String(wm).padStart(2,'0')}-${String(wd).padStart(2,'0')}`, label:`${String(wd).padStart(2,'0')}.${String(wm).padStart(2,'0')}`}; }
+  return {key:iso, label:`${String(d).padStart(2,'0')}.${String(m).padStart(2,'0')}`};
+}
+function bucketSolved(rows, period){
+  const map={};
+  rows.forEach(r=>{ const iso=r.cozum_tarihi||(r.created_at?String(r.created_at).slice(0,10):null); const pk=periodKey(iso,period); if(!pk)return;
+    const soru=(r.dogru||0)+(r.yanlis||0)+(r.bos||0); const b=map[pk.key]||(map[pk.key]={key:pk.key,label:pk.label,soru:0,dogru:0}); b.soru+=soru; b.dogru+=(r.dogru||0); });
+  const arr=Object.values(map).sort((a,b)=>a.key<b.key?-1:1);
+  arr.forEach(b=>b.basari=b.soru?Math.round(b.dogru/b.soru*100):0);
+  return arr;
+}
+function comboChartSVG(b){
+  if(!b.length) return `<div class="empty" style="padding:16px">Bu aralıkta veri yok.</div>`;
+  const W=700,H=300,ml=40,mr=46,mt=28,mb=46; const x0=ml,x1=W-mr,y0=mt,y1=H-mb;
+  const n=b.length, step=(x1-x0)/n; const cMax=niceMax(Math.max(...b.map(d=>d.soru)));
+  const yC=v=>y1-(v/cMax)*(y1-y0), yP=v=>y1-(v/100)*(y1-y0); const bw=Math.min(40, step*0.62);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;font-family:inherit">`;
+  s+=`<text x="${x0}" y="14" style="fill:var(--brand)" font-size="11" font-weight="700">▮ çözülen soru</text>`;
+  s+=`<text x="${x1}" y="14" text-anchor="end" style="fill:var(--okg)" font-size="11" font-weight="700">— başarı %</text>`;
+  [0,cMax/2,cMax].forEach(t=>{ const y=yC(t); s+=`<line x1="${x0}" y1="${y.toFixed(1)}" x2="${x1}" y2="${y.toFixed(1)}" style="stroke:var(--line)" stroke-width="1"/>`;
+    s+=`<text x="${x0-6}" y="${(y+4).toFixed(1)}" text-anchor="end" style="fill:var(--ink-3)" font-size="11">${Math.round(t)}</text>`; });
+  [0,50,100].forEach(p=>{ const y=yP(p); s+=`<text x="${x1+6}" y="${(y+4).toFixed(1)}" style="fill:var(--ink-3)" font-size="11">%${p}</text>`; });
+  b.forEach((d,i)=>{ const cx=x0+step*(i+0.5), by=yC(d.soru);
+    s+=`<rect x="${(cx-bw/2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,y1-by).toFixed(1)}" rx="3" style="fill:var(--brand)"/>`;
+    const tall=(y1-by)>=24;
+    s+=`<text x="${cx.toFixed(1)}" y="${(tall?by+15:by-5).toFixed(1)}" text-anchor="middle" style="fill:${tall?'#fff':'var(--ink-2)'}" font-size="11" font-weight="700">${d.soru}</text>`;
+    s+=`<text x="${cx.toFixed(1)}" y="${(y1+15).toFixed(1)}" text-anchor="middle" style="fill:var(--ink-3)" font-size="10">${esc(d.label)}</text>`; });
+  const pts=b.map((d,i)=>`${(x0+step*(i+0.5)).toFixed(1)},${yP(d.basari).toFixed(1)}`).join(' ');
+  s+=`<polyline points="${pts}" fill="none" style="stroke:var(--okg)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  b.forEach((d,i)=>{ const cx=x0+step*(i+0.5), cy=yP(d.basari);
+    s+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="3.2" style="fill:var(--okg)"/>`;
+    s+=`<text x="${cx.toFixed(1)}" y="${(cy-7).toFixed(1)}" text-anchor="middle" style="fill:var(--okg)" font-size="10" font-weight="700">%${d.basari}</text>`; });
+  s+=`</svg>`; return s;
+}
+function drawAnChart(){
+  const rows=window._anRows||[]; let b=bucketSolved(rows,analizPeriod);
+  const lim=analizPeriod==='gun'?14:12; if(b.length>lim) b=b.slice(-lim);
+  const box=$('#an_chart'); if(box) box.innerHTML=comboChartSVG(b);
+  $$('#an_periods [data-period]').forEach(x=>x.classList.toggle('brand',x.dataset.period===analizPeriod));
+}
 async function renderAnaliz(){
   const el=$('#view-analiz');
   const dersOpts=`<option value="">Tüm dersler</option>`+S.dersler.map(d=>`<option value="${d.id}" ${analizDers==d.id?'selected':''}>${esc(d.ad)}</option>`).join('');
@@ -1035,6 +1082,17 @@ async function renderAnaliz(){
       <div class="barrow"><span class="nm">Boş</span><span class="chip warn">${tb}</span></div>
     </div>`;
 
+    // Günlük çözülen soru + başarı (çift eksenli kombo grafik)
+    h+=`<h2 class="sec">Çözüm temposu & başarı</h2>
+      <div class="card pad" style="margin-bottom:14px">
+        <div class="row" id="an_periods" style="gap:6px;margin-bottom:10px">
+          <button class="btn sm" data-period="gun">Günlük</button>
+          <button class="btn sm" data-period="hafta">Haftalık</button>
+          <button class="btn sm" data-period="ay">Aylık</button>
+        </div>
+        <div id="an_chart"></div>
+      </div>`;
+
     // Net gelişimi (son 15, kronolojik)
     const last=srows.slice(-15);
     h+=`<h2 class="sec">Net gelişimi</h2><div class="card pad" style="margin-bottom:14px">`+
@@ -1076,6 +1134,11 @@ async function renderAnaliz(){
   }
 
   body.innerHTML=h;
+  if(srows.length){
+    window._anRows=srows;
+    $$('#an_periods [data-period]').forEach(btn=>btn.onclick=()=>{ analizPeriod=btn.dataset.period; drawAnChart(); });
+    drawAnChart();
+  }
 }
 
 /* ----- RESULT SHEET (ödevden) ----- */

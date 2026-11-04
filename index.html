@@ -131,6 +131,18 @@
   .acell .cam-btn{flex:none;width:34px;height:30px;border:2px solid var(--kor);background:var(--surface);color:var(--kor);border-radius:8px;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
   .acell .cam-btn.done{border-color:var(--okg);background:var(--okg);color:#fff}
   .acell .cam-btn.busy{border-color:var(--ink-3);color:var(--ink-3);opacity:.7}
+  .ca-review{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:6px;margin:10px 0}
+  .caq{border:1.5px solid var(--line);border-radius:9px;padding:5px 2px 4px;text-align:center;background:var(--surface)}
+  .caq .caq-n{font-size:10px;color:var(--ink-3);line-height:1.1}
+  .caq .caq-a{font-weight:800;font-size:15px;margin-top:1px;line-height:1.1}
+  .caq .caq-s{font-size:9.5px;display:block;margin-top:1px;color:var(--ink-3)}
+  .caq.ok{border-color:var(--okg);background:color-mix(in srgb,var(--okg) 9%,var(--surface))} .caq.ok .caq-a,.caq.ok .caq-s{color:var(--okg)}
+  .caq.wrong{border-color:var(--kor);background:color-mix(in srgb,var(--kor) 11%,var(--surface))} .caq.wrong .caq-a,.caq.wrong .caq-s{color:var(--kor)}
+  .caq.blank{border-color:var(--ink-3);background:color-mix(in srgb,var(--ink-3) 10%,var(--surface))}
+  .ck-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;border-top:1px solid var(--line)}
+  .ck-row:first-child{border-top:0}
+  .ck-row .konu-sel{flex:1;max-width:64%;padding:8px 9px;font-size:12.5px;border-radius:9px}
+  .cozum-line{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 13px 7px 20px;border-top:1px dashed var(--line);cursor:pointer}
   .tkimg-wrap{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;overflow:auto;max-height:46vh;display:flex;justify-content:center}
   .tkimg{max-width:100%;height:auto;display:block}
   .tk-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -1043,9 +1055,9 @@ async function renderOdevTests(odev){
   const tids=rows.map(r=>r.materyal_test_id);
   const done={};
   if(tids.length){
-    const {data}=await db.from('sonuclar').select('materyal_test_id,dogru,yanlis,bos,cozum_tarihi')
-      .in('materyal_test_id',tids).order('cozum_tarihi',{ascending:false});
-    (data||[]).forEach(s=>{ if(s.materyal_test_id && !done[s.materyal_test_id]) done[s.materyal_test_id]=s; });
+    const {data}=await db.from('sonuclar').select('id,materyal_test_id,dogru,yanlis,bos,cozum_tarihi')
+      .eq('odev_id',odev.id).in('materyal_test_id',tids).order('cozum_tarihi',{ascending:false});
+    (data||[]).forEach(s=>{ if(s.materyal_test_id) (done[s.materyal_test_id]=done[s.materyal_test_id]||[]).push(s); });
   }
   // ödev kitabını katalogla eşleştir (serbest metin → materyal)
   const matched=Object.values(S.matById).find(m=>m.ad===odev.materyal);
@@ -1053,16 +1065,30 @@ async function renderOdevTests(odev){
   let h=`<h2 class="sec" style="margin-top:4px">Bu ödevin testleri</h2>`;
   if(rows.length){
     h+=`<div class="card" style="padding:2px 0;margin-bottom:10px">`+rows.map(r=>{
-      const t=r.materyal_testleri, s=done[r.materyal_test_id];
+      const t=r.materyal_testleri, sols=done[r.materyal_test_id]||[], s=sols[0];
       const st= s? `<span class="chip ok">net ${fnet(s.dogru,s.yanlis)}</span>` : `<span class="chip">çözülmedi</span>`;
       const q=soruStr(t.soru_sayisi);
-      return `<div class="row" style="justify-content:space-between;gap:8px;padding:9px 13px;border-top:1px solid var(--line)">
-        <div style="flex:1;min-width:0;cursor:pointer" onclick="solveOdevTest(${odev.id},${t.id})">
-          <div style="font-weight:650;font-size:13.5px">${esc(testLabel(t))} ›</div>
-          ${q?`<div class="tiny">${q}</div>`:''}
+      let sub='';
+      if(sols.length){
+        sub=sols.map(so=>{
+          const wb=(so.yanlis||0)+(so.bos||0);
+          const lbl= wb? `${wb} yanlış/boş · konu işaretle ›` : 'tam ✓';
+          return `<div class="cozum-line" onclick="openCozumDetay(${so.id},${t.id},${odev.id})">
+            <span class="tiny" style="color:var(--ink-2)">${trDate(so.cozum_tarihi)} · net ${fnet(so.dogru,so.yanlis)}</span>
+            <span class="chip ${wb?'warn':'ok'}" style="cursor:pointer">${lbl}</span>
+          </div>`;
+        }).join('');
+      }
+      return `<div style="border-top:1px solid var(--line)">
+        <div class="row" style="justify-content:space-between;gap:8px;padding:9px 13px">
+          <div style="flex:1;min-width:0;cursor:pointer" onclick="solveOdevTest(${odev.id},${t.id})">
+            <div style="font-weight:650;font-size:13.5px">${esc(testLabel(t))} ›</div>
+            ${q?`<div class="tiny">${q}</div>`:''}
+          </div>
+          ${st}
+          <button class="btn sm" title="Çıkar" onclick="unlinkOdevTest(${r.id},${odev.id})" style="padding:4px 9px;color:var(--bad)">✕</button>
         </div>
-        ${st}
-        <button class="btn sm" title="Çıkar" onclick="unlinkOdevTest(${r.id},${odev.id})" style="padding:4px 9px;color:var(--bad)">✕</button>
+        ${sub}
       </div>`;
     }).join('')+`</div>`;
   } else {
@@ -1146,6 +1172,99 @@ async function saveFromOdev(ctx){
   }
   if(allDone) await db.from('odevler').update({durum:'yapildi'}).eq('id',ctx._odev.id);
   closeSheet(); toast(allDone?`Kaydedildi · ödev yapıldı · net ${fnet(d,y)}`:`Kaydedildi · net ${fnet(d,y)}`); renderOdev();
+}
+
+/* ---------- ÇÖZÜM DETAYI: cevap anahtarı (salt-okunur) + konu işaretle ---------- */
+async function openCozumDetay(sonucId,testId,odevId){
+  sheet(`<button class="btn sm" id="cd_back" style="margin-bottom:8px">‹ Ödeve dön</button>
+    <div id="cd_dyn"><div class="sk" style="margin-top:12px"></div></div>`);
+  const [sR,tR,caR,yfR,mskR]=await Promise.all([
+    db.from('sonuclar').select('id,ders_id,dogru,yanlis,bos,net,cozum_tarihi,odev_id,materyal_test_id').eq('id',sonucId).single(),
+    db.from('materyal_testleri').select('id,unite,bolum,tip,test_no,konu_id,materyaller(ad,ders_id)').eq('id',testId).single(),
+    db.from('cevap_anahtari').select('soru_no,dogru_cevap').eq('materyal_test_id',testId).order('soru_no'),
+    db.from('yanlis_foto').select('id,soru_no,tip,konu_id').eq('sonuc_id',sonucId).order('soru_no'),
+    db.from('materyal_soru_konu').select('soru_no,konu_id').eq('materyal_test_id',testId)
+  ]);
+  const sonuc=sR.data, test=tR.data, CA=caR.data||[], YF=yfR.data||[], MSK=mskR.data||[];
+  const dersId=(sonuc&&sonuc.ders_id)|| (test&&test.materyaller&&test.materyaller.ders_id) || null;
+  const mskByQ={}; MSK.forEach(m=>{ mskByQ[m.soru_no]=m.konu_id; });
+  const yfByQ={}; YF.forEach(f=>{ yfByQ[f.soru_no]=f; });
+  // geri dön
+  $('#cd_back').onclick=async()=>{ const {data}=await db.from('odevler').select('*').eq('id',odevId).single(); if(data) openResultSheet({fromOdev:data}); else closeSheet(); };
+
+  const ks=S.konByDers[dersId]||[];
+  const dyn=$('#cd_dyn');
+  if(!CA.length){
+    dyn.innerHTML=`<h3>${esc(testLabel(test))}</h3>
+      <p class="hint">${esc((test.materyaller||{}).ad||'')}</p>
+      <div class="empty" style="margin-top:20px">Bu testin cevap anahtarı yok, soru bazında gösterilemiyor.</div>`;
+    return;
+  }
+  // salt-okunur cevap anahtarı: doğru=yeşil, yanlış=kırmızı, boş=gri (yanlis_foto'ya göre)
+  const grid=CA.map(c=>{
+    const f=yfByQ[c.soru_no];
+    const cls=!f?'ok':(f.tip==='bos'?'blank':'wrong');
+    const s=!f?'doğru':(f.tip==='bos'?'boş':'yanlış');
+    return `<div class="caq ${cls}"><span class="caq-n">${c.soru_no}</span><span class="caq-a">${esc(c.dogru_cevap||'–')}</span><span class="caq-s">${s}</span></div>`;
+  }).join('');
+
+  // konu seçilecek sorular: yanlış + boş (yanlis_foto satırları)
+  const marks=YF.slice().sort((a,b)=>a.soru_no-b.soru_no);
+  let konuHtml;
+  if(!ks.length){
+    konuHtml=`<p class="hint">Bu ders için tanımlı konu yok.</p>`;
+  } else if(!marks.length){
+    konuHtml=((sonuc.yanlis||0)+(sonuc.bos??0)>0)
+      ? `<div class="empty">Bu çözümde soru bazında yanlış/boş kaydı yok (fotoğrafsız girilmiş), konu işaretlenemiyor.</div>`
+      : `<div class="empty">Bu çözümde yanlış/boş soru yok 🎉</div>`;
+  } else {
+    konuHtml=`<div class="card" style="padding:0" id="ckSelects">`+marks.map(f=>{
+      const def = (f.konu_id!=null?f.konu_id : (mskByQ[f.soru_no]!=null?mskByQ[f.soru_no] : (test.konu_id!=null?test.konu_id:'')));
+      return `<div class="ck-row">
+        <span style="font-size:13px;white-space:nowrap"><b>Soru ${f.soru_no}</b> <span class="tiny" style="color:var(--${f.tip==='bos'?'ink-3':'bad'})">${f.tip==='bos'?'boş':'yanlış'}</span></span>
+        <select class="konu-sel" data-yf="${f.id}">
+          <option value="">— konu seç —</option>
+          ${ks.map(k=>`<option value="${k.id}" ${String(def)===String(k.id)?'selected':''}>${esc(k.ad)}</option>`).join('')}
+        </select>
+      </div>`;
+    }).join('')+`</div>
+    <button class="btn brand block" style="margin-top:14px" id="ck_save">Konuları kaydet</button>`;
+  }
+
+  dyn.innerHTML=`<h3>${esc(testLabel(test))}</h3>
+    <p class="hint">${esc((test.materyaller||{}).ad||'')} · ${trDate(sonuc.cozum_tarihi)}</p>
+    <div class="card" style="margin-top:10px;padding:12px;display:flex;align-items:center;justify-content:space-between">
+      <div><div class="tiny">Net</div><div class="net-big">${fnet(sonuc.dogru,sonuc.yanlis)}</div></div>
+      <div style="text-align:right"><div class="tiny">D / Y / B</div><div style="font-weight:800;font-size:17px">${sonuc.dogru} / ${sonuc.yanlis} / ${sonuc.bos??0}</div></div>
+    </div>
+    <h2 class="sec" style="margin-top:16px">Cevap anahtarı <span style="text-transform:none;font-weight:600">(değiştirilemez)</span></h2>
+    <p class="tiny" style="margin:0 4px 2px">Yeşil: doğru · Kırmızı: yanlış · Gri: boş</p>
+    <div class="ca-review">${grid}</div>
+    <h2 class="sec" style="margin-top:16px">Yanlış / boş soruların konusu</h2>
+    <p class="tiny" style="margin:0 4px 8px">Her sorunun hangi konudan olduğunu seç. Kaydedince analize işlenir.</p>
+    ${konuHtml}`;
+
+  const sv=$('#ck_save');
+  if(sv) sv.onclick=()=>saveCozumKonu(sonucId,odevId,sv);
+}
+async function saveCozumKonu(sonucId,odevId,btn){
+  btn.disabled=true;
+  const sels=$$('#ckSelects .konu-sel');
+  // 1) her yanlis_foto satırına konu_id yaz
+  for(const sel of sels){
+    const yfId=+sel.dataset.yf; const kid=sel.value?+sel.value:null;
+    const r=await db.from('yanlis_foto').update({konu_id:kid}).eq('id',yfId);
+    if(r.error){ toast('Kaydedilemedi: '+r.error.message); btn.disabled=false; return; }
+  }
+  // 2) yanlis_konular'ı bu çözüm için yeniden kur (konu bazında sayı)
+  const agg={}; sels.forEach(sel=>{ if(sel.value){ const k=+sel.value; agg[k]=(agg[k]||0)+1; } });
+  await db.from('yanlis_konular').delete().eq('sonuc_id',sonucId);
+  const yk=Object.entries(agg).map(([k,a])=>({sonuc_id:sonucId,konu_id:+k,adet:a}));
+  if(yk.length){ const r=await db.from('yanlis_konular').insert(yk); if(r.error){ toast('Konu özeti yazılamadı'); btn.disabled=false; return; } }
+  btn.disabled=false;
+  toast('Konular kaydedildi ✓');
+  const {data}=await db.from('odevler').select('*').eq('id',odevId).single();
+  if(data) openResultSheet({fromOdev:data}); else closeSheet();
 }
 
 /* ---------- TEKRAR (yanlış soruları yeniden çöz) ---------- */

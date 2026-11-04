@@ -1169,6 +1169,7 @@ async function renderOdevTests(odev){
 }
 
 async function unlinkOdevTest(linkId,odevId){
+  if(!confirm('Bu test ödevden çıkarılsın mı?\n(Çözüm kayıtları silinmez, sadece bu ödevle bağlantısı kaldırılır.)')) return;
   const {error}=await db.from('odev_test').delete().eq('id',linkId);
   if(error){ toast('Çıkarılamadı'); return; }
   toast('Test çıkarıldı');

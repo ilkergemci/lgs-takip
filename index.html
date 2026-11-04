@@ -814,7 +814,7 @@ async function saveKitapResult(ctx){
   if(sRes.error){toast('Hata: '+sRes.error.message);$('#k_save').disabled=false;return;}
   const yk=Object.entries(konu).map(([konu_id,adet])=>({sonuc_id:sRes.data.id,konu_id:+konu_id,adet}));
   if(yk.length){ const r=await db.from('yanlis_konular').insert(yk); if(r.error)toast('Konular kaydedilemedi'); }
-  if(fotos.length){ const rows=fotos.map(f=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:f.soru_no,tip:f.tip,foto_path:f.foto_path,foto_url:f.foto_url,temiz_path:f.temiz_path,temiz_url:f.temiz_url})); const r=await db.from('yanlis_foto').insert(rows).select('id'); if(r.error)toast('Fotoğraf kaydı yazılamadı'); else vektorleBaslat(r.data); }
+  if(fotos.length){ const rows=fotos.map(f=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:f.soru_no,tip:f.tip,secilen:(ctx.answers&&ctx.answers[f.soru_no])||null,foto_path:f.foto_path,foto_url:f.foto_url,temiz_path:f.temiz_path,temiz_url:f.temiz_url})); const r=await db.from('yanlis_foto').insert(rows).select('id'); if(r.error)toast('Fotoğraf kaydı yazılamadı'); else vektorleBaslat(r.data); }
   $('#k_save').disabled=false;
   closeSheet(); toast(`Kaydedildi · net ${fnet(d,y)}`);
   setView('ozet');
@@ -1160,7 +1160,7 @@ async function saveFromOdev(ctx){
   if(ctx.hasCA){ try{ fotos=await uploadPhotos(ctx); }catch(e){ toast('Fotoğraf yüklenemedi, tekrar dene'); $('#k_save').disabled=false; return; } }
   const sRes=await db.from('sonuclar').insert({odev_id:ctx._odev.id,ders_id:ctx.dersId,materyal_test_id:ctx.test.id,dogru:d,yanlis:y,bos:b,cozum_tarihi:$('#k_date').value||todayISO()}).select('id').single();
   if(!sRes.error){ const konu=ctx.hasMSK?(ctx.autoKonu||{}):(ctx.manualKonu||{}); const yk=Object.entries(konu).map(([k,a])=>({sonuc_id:sRes.data.id,konu_id:+k,adet:a})); if(yk.length)await db.from('yanlis_konular').insert(yk);
-    if(fotos.length){ const rows=fotos.map(f=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:f.soru_no,tip:f.tip,foto_path:f.foto_path,foto_url:f.foto_url,temiz_path:f.temiz_path,temiz_url:f.temiz_url})); const r=await db.from('yanlis_foto').insert(rows).select('id'); if(r.error)toast('Fotoğraf kaydı yazılamadı'); else vektorleBaslat(r.data); } }
+    if(fotos.length){ const rows=fotos.map(f=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:f.soru_no,tip:f.tip,secilen:(ctx.answers&&ctx.answers[f.soru_no])||null,foto_path:f.foto_path,foto_url:f.foto_url,temiz_path:f.temiz_path,temiz_url:f.temiz_url})); const r=await db.from('yanlis_foto').insert(rows).select('id'); if(r.error)toast('Fotoğraf kaydı yazılamadı'); else vektorleBaslat(r.data); } }
   // Otomatik tescil: ödeve bağlı TÜM testler çözüldüyse ödevi "yapıldı" yap
   const {data:links}=await db.from('odev_test').select('materyal_test_id').eq('odev_id',ctx._odev.id);
   const tids=(links||[]).map(l=>l.materyal_test_id);
@@ -1182,7 +1182,7 @@ async function openCozumDetay(sonucId,testId,odevId){
     db.from('sonuclar').select('id,ders_id,dogru,yanlis,bos,net,cozum_tarihi,odev_id,materyal_test_id').eq('id',sonucId).single(),
     db.from('materyal_testleri').select('id,unite,bolum,tip,test_no,konu_id,materyaller(ad,ders_id)').eq('id',testId).single(),
     db.from('cevap_anahtari').select('soru_no,dogru_cevap').eq('materyal_test_id',testId).order('soru_no'),
-    db.from('yanlis_foto').select('id,soru_no,tip,konu_id').eq('sonuc_id',sonucId).order('soru_no'),
+    db.from('yanlis_foto').select('id,soru_no,tip,konu_id,secilen').eq('sonuc_id',sonucId).order('soru_no'),
     db.from('materyal_soru_konu').select('soru_no,konu_id').eq('materyal_test_id',testId)
   ]);
   const sonuc=sR.data, test=tR.data, CA=caR.data||[], YF=yfR.data||[], MSK=mskR.data||[];
@@ -1202,10 +1202,11 @@ async function openCozumDetay(sonucId,testId,odevId){
   }
   // salt-okunur cevap anahtarı: doğru=yeşil, yanlış=kırmızı, boş=gri (yanlis_foto'ya göre)
   const grid=CA.map(c=>{
-    const f=yfByQ[c.soru_no];
-    const cls=!f?'ok':(f.tip==='bos'?'blank':'wrong');
-    const s=!f?'doğru':(f.tip==='bos'?'boş':'yanlış');
-    return `<div class="caq ${cls}"><span class="caq-n">${c.soru_no}</span><span class="caq-a">${esc(c.dogru_cevap||'–')}</span><span class="caq-s">${s}</span></div>`;
+    const f=yfByQ[c.soru_no], corr=esc(c.dogru_cevap||'–');
+    if(!f) return `<div class="caq ok"><span class="caq-n">${c.soru_no}</span><span class="caq-a">${corr}</span><span class="caq-s">doğru</span></div>`;
+    if(f.tip==='bos') return `<div class="caq blank"><span class="caq-n">${c.soru_no}</span><span class="caq-a">–</span><span class="caq-s">boş · d:${corr}</span></div>`;
+    const sec=f.secilen?esc(f.secilen):null;
+    return `<div class="caq wrong"><span class="caq-n">${c.soru_no}</span><span class="caq-a">${sec||corr}</span><span class="caq-s">${sec?('d:'+corr):'yanlış'}</span></div>`;
   }).join('');
 
   // konu seçilecek sorular: yanlış + boş (yanlis_foto satırları)
@@ -1238,7 +1239,7 @@ async function openCozumDetay(sonucId,testId,odevId){
       <div style="text-align:right"><div class="tiny">D / Y / B</div><div style="font-weight:800;font-size:17px">${sonuc.dogru} / ${sonuc.yanlis} / ${sonuc.bos??0}</div></div>
     </div>
     <h2 class="sec" style="margin-top:16px">Cevap anahtarı <span style="text-transform:none;font-weight:600">(değiştirilemez)</span></h2>
-    <p class="tiny" style="margin:0 4px 2px">Yeşil: doğru · Kırmızı: yanlış · Gri: boş</p>
+    <p class="tiny" style="margin:0 4px 2px">Yeşil: doğru · Kırmızı: öğrencinin işareti (d: doğru cevap) · Gri: boş</p>
     <div class="ca-review">${grid}</div>
     <h2 class="sec" style="margin-top:16px">Yanlış / boş soruların konusu</h2>
     <p class="tiny" style="margin:0 4px 8px">Her sorunun hangi konudan olduğunu seç. Kaydedince analize işlenir.</p>

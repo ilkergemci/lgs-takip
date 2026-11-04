@@ -1016,10 +1016,10 @@ async function renderOdevTests(odev){
     </div>`;
   body.innerHTML=h;
 
-  // kitap seçenekleri: eşleşen en üstte, sonra derse göre
+  // kitap seçenekleri: eşleşen en üstte, gerisi isme göre alfabetik
   const mats=[...Object.values(S.matById)].sort((a,b)=>{
     if(matched){ if(a.id===matched.id)return -1; if(b.id===matched.id)return 1; }
-    return (a.ders_id-b.ders_id) || a.ad.localeCompare(b.ad,'tr');
+    return a.ad.localeCompare(b.ad,'tr',{numeric:true,sensitivity:'base'});
   });
   const ms=$('#ot_mat'), tsel=$('#ot_test');
   ms.innerHTML=`<option value="">— Seçiniz —</option>`+mats.map(m=>`<option value="${m.id}" ${matched&&m.id===matched.id?'selected':''}>${esc(m.ad)} · ${esc(dersAd(m.ders_id))}</option>`).join('');

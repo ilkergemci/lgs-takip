@@ -1327,7 +1327,7 @@ function ensureFabric(){
   return _fabricP;
 }
 let VEK=null;
-async function openVektorEditor(fotoId){
+async function openVektorEditor(fotoId,onClose){
   try{ await ensureFabric(); }catch(e){ toast('Editör yüklenemedi (internet?)'); return; }
   const {data:row,error}=await db.from('yanlis_foto')
     .select('id,materyal_test_id,soru_no,tip,foto_url,temiz_url,vektor_url,vektor_path').eq('id',fotoId).single();
@@ -1340,7 +1340,7 @@ async function openVektorEditor(fotoId){
   if(svg){ const vb=(svg.match(/viewBox="([-\d.\s]+)"/)||[])[1]; if(vb){ const p=vb.trim().split(/\s+/).map(Number); if(p.length===4&&p[2]>0&&p[3]>0){ W=p[2]; H=p[3]; } } }
   if(VEK&&VEK.canvas){ try{VEK.canvas.dispose();}catch(_){ } }
   const canvas=new fabric.Canvas('vekCanvas',{backgroundColor:'#ffffff',preserveObjectStacking:true});
-  VEK={canvas,row,W,H,mode:'select',color:'#1b2440',width:2,font:20,history:[],_loading:false};
+  VEK={canvas,row,W,H,mode:'select',color:'#1b2440',width:2,font:20,history:[],_loading:false,_onClose:onClose||null};
   vekFit();
   bindVekCanvas(canvas);
   if(svg){
@@ -1419,7 +1419,7 @@ async function saveVektorEdit(){
   if(r.error){ toast('DB güncellenemedi'); return; }
   toast('Vektör kaydedildi ✓ onaylı'); closeVektorEditor();
 }
-function closeVektorEditor(){ const ed=$('#vekEditor'); ed.classList.remove('open'); ed.setAttribute('aria-hidden','true'); document.body.style.overflow=''; if(VEK&&VEK.canvas){ try{VEK.canvas.dispose();}catch(_){ } } VEK=null; }
+function closeVektorEditor(){ const cb=VEK&&VEK._onClose; const ed=$('#vekEditor'); ed.classList.remove('open'); ed.setAttribute('aria-hidden','true'); document.body.style.overflow=''; if(VEK&&VEK.canvas){ try{VEK.canvas.dispose();}catch(_){ } } VEK=null; if(cb){ try{cb();}catch(_){ } } }
 function wireVekTools(){
   $$('#vekTools [data-mode]').forEach(b=> b.onclick=()=>vekSetMode(b.dataset.mode));
   const col=$('#vekColor'); col.value=VEK.color; col.oninput=e=>vekSetColor(e.target.value);
@@ -1493,16 +1493,25 @@ function tekrarGoster(st){
         <span class="chip ${r.tip==='bos'?'':'bad'}">${tipEt}</span>
       </span>
     </div>
-    <div class="tkimg-wrap"><img class="tkimg" id="tk_img" src="${esc(src)}" alt="soru"></div>
-    <div class="row" style="justify-content:space-between;margin:6px 2px 2px">
+    <div class="tkimg-wrap" id="tk_imgwrap" title="Düzenlemek için dokun" style="cursor:pointer"><img class="tkimg" id="tk_img" src="${esc(src)}" alt="soru"></div>
+    <div class="row" style="justify-content:space-between;margin:6px 2px 2px;gap:6px;flex-wrap:wrap">
       <span class="tiny">Kaynak: ${kaynak}</span>
-      <button class="btn sm" id="tk_orig">${st.showOrig?'Temiz/çözülecek hali':'Nasıl çözmüştü? (orijinal)'}</button>
+      <span class="row" style="gap:6px">
+        <button class="btn sm" id="tk_edit" style="color:var(--brand)">✎ Düzenle</button>
+        <button class="btn sm" id="tk_orig">${st.showOrig?'Temiz/çözülecek hali':'Nasıl çözmüştü? (orijinal)'}</button>
+      </span>
     </div>
     <p class="hint" style="margin:12px 2px 6px">Doğru cevabı işaretle:</p>
     <div class="tk-opts" id="tk_opts">${['A','B','C','D'].map(o=>`<button class="tk-opt" data-o="${o}">${o}</button>`).join('')}</div>
     <div id="tk_fb" style="margin-top:12px"></div>`);
   // orijinal/temiz geçiş
   $('#tk_orig').onclick=()=>{ st.showOrig=!st.showOrig; $('#tk_img').src = st.showOrig ? (r.foto_url||src) : src; $('#tk_orig').textContent = st.showOrig?'Temiz/çözülecek hali':'Nasıl çözmüştü? (orijinal)'; };
+  const openEdit=()=>openVektorEditor(r.id, async()=>{
+    const {data}=await db.from('yanlis_foto').select('vektor_url,vektor_durum,temiz_url,foto_url').eq('id',r.id).single();
+    if(data){ Object.assign(r,data); st.showOrig=false; const im=$('#tk_img'); if(im) im.src=bestFotoUrl(r); const ob=$('#tk_orig'); if(ob)ob.textContent='Nasıl çözmüştü? (orijinal)'; }
+  });
+  $('#tk_edit').onclick=openEdit;
+  $('#tk_imgwrap').onclick=openEdit;
   const opts=$('#tk_opts');
   opts.onclick=async (e)=>{
     const b=e.target.closest('.tk-opt'); if(!b||st._answered) return;

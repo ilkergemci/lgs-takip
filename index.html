@@ -912,6 +912,7 @@ async function toggleKitapTests(mid){
   box.classList.remove('hidden');
   box.innerHTML='<div class="sk" style="height:44px"></div>';
   const ts=await testsOf(mid);
+  ts.sort((a,b)=>testLabel(a).localeCompare(testLabel(b),'tr',{numeric:true,sensitivity:'base'})); // harf sırası (sayılar doğru)
   const ids=ts.map(t=>t.id);
   const done={}, cnt={};
   if(ids.length){

@@ -268,6 +268,7 @@
       <select id="vekWidth" title="Çizgi kalınlığı"><option value="1">ince</option><option value="2" selected>orta</option><option value="4">kalın</option><option value="7">çok kalın</option></select>
       <select id="vekFont" title="Yazı boyutu"><option value="14">14</option><option value="20" selected>20</option><option value="26">26</option><option value="34">34</option></select>
       <span class="sep"></span>
+      <button id="vekDup" title="Seçili şekli kopyala / çoğalt">⧉ Kopyala</button>
       <button id="vekDel" title="Seçiliyi sil">🗑 Sil</button>
       <button id="vekUndo" title="Geri al">↶</button>
       <button id="vekRefBtn" title="Orijinal fotoğrafı göster/gizle">🖼 Orijinal</button>
@@ -1402,6 +1403,12 @@ function vekSetMode(m){
 function vekPush(){ if(!VEK||VEK._loading) return; try{ VEK.history.push(JSON.stringify(VEK.canvas.toJSON())); if(VEK.history.length>40)VEK.history.shift(); }catch(_){ } }
 function vekUndo(){ if(!VEK||VEK.history.length<2) return; VEK.history.pop(); const st=VEK.history[VEK.history.length-1]; VEK._loading=true; VEK.canvas.loadFromJSON(st,()=>{ VEK.canvas.requestRenderAll(); VEK._loading=false; vekSetMode('select'); }); }
 function vekDel(){ if(!VEK) return; const c=VEK.canvas; const objs=c.getActiveObjects(); if(!objs.length) return; objs.forEach(o=>c.remove(o)); c.discardActiveObject(); c.requestRenderAll(); vekPush(); }
+function vekPlace(c,cl){ cl.set({left:(cl.left||0)+18,top:(cl.top||0)+18,evented:true,selectable:true}); c.discardActiveObject();
+  if(cl.type==='activeSelection'){ cl.canvas=c; cl.forEachObject(o=>{o.selectable=true;o.evented=true;c.add(o);}); cl.setCoords(); } else { c.add(cl); }
+  c.setActiveObject(cl); c.requestRenderAll(); vekPush(); }
+function vekDup(){ if(!VEK) return; if(VEK.mode!=='select')vekSetMode('select'); const c=VEK.canvas; const act=c.getActiveObject(); if(!act){ toast('Önce bir şekil seç'); return; } act.clone(cl=>vekPlace(c,cl)); }
+function vekCopy(){ if(!VEK) return; const act=VEK.canvas.getActiveObject(); if(!act){ toast('Önce bir şekil seç'); return; } act.clone(cl=>{ VEK._clip=cl; toast('Kopyalandı · Yapıştır (Ctrl+V)'); }); }
+function vekPaste(){ if(!VEK||!VEK._clip){ toast('Önce kopyala (Ctrl+C)'); return; } if(VEK.mode!=='select')vekSetMode('select'); VEK._clip.clone(cl=>vekPlace(VEK.canvas,cl)); }
 function vekSetColor(v){ if(!VEK) return; VEK.color=v; const c=VEK.canvas; const o=c.getActiveObject(); if(o){ if(o.type==='i-text'||o.type==='text')o.set('fill',v); else o.set('stroke',v); c.requestRenderAll(); vekPush(); } if(c.freeDrawingBrush)c.freeDrawingBrush.color=v; }
 function vekSetWidth(w){ if(!VEK) return; VEK.width=+w; const c=VEK.canvas; const o=c.getActiveObject(); if(o&&o.type!=='i-text'&&o.type!=='text'&&o.strokeWidth!=null){ o.set('strokeWidth',+w); c.requestRenderAll(); vekPush(); } if(c.freeDrawingBrush)c.freeDrawingBrush.width=+w; }
 function vekSetFont(s){ if(!VEK) return; VEK.font=+s; const o=VEK.canvas.getActiveObject(); if(o&&(o.type==='i-text'||o.type==='text')){ o.set('fontSize',+s); VEK.canvas.requestRenderAll(); vekPush(); } }
@@ -1425,6 +1432,7 @@ function wireVekTools(){
   const col=$('#vekColor'); col.value=VEK.color; col.oninput=e=>vekSetColor(e.target.value);
   $('#vekWidth').onchange=e=>vekSetWidth(e.target.value);
   $('#vekFont').onchange=e=>vekSetFont(e.target.value);
+  $('#vekDup').onclick=vekDup;
   $('#vekDel').onclick=vekDel;
   $('#vekUndo').onclick=vekUndo;
   $('#vekRefBtn').onclick=vekToggleRef;
@@ -1433,7 +1441,15 @@ function wireVekTools(){
   vekSetMode('select');
 }
 window.addEventListener('resize',()=>{ if(VEK&&$('#vekEditor').classList.contains('open')) vekFit(); });
-window.addEventListener('keydown',e=>{ if(!VEK||!$('#vekEditor').classList.contains('open'))return; const a=VEK.canvas.getActiveObject(); if((e.key==='Delete'||e.key==='Backspace')&&a&&!(a.isEditing)){ e.preventDefault(); vekDel(); } });
+window.addEventListener('keydown',e=>{
+  if(!VEK||!$('#vekEditor').classList.contains('open'))return;
+  const a=VEK.canvas.getActiveObject(); if(a&&a.isEditing) return; // metin yazarken kısayollara karışma
+  const mod=e.ctrlKey||e.metaKey;
+  if((e.key==='Delete'||e.key==='Backspace')&&a){ e.preventDefault(); vekDel(); return; }
+  if(mod&&(e.key==='d'||e.key==='D')){ e.preventDefault(); vekDup(); return; }
+  if(mod&&(e.key==='c'||e.key==='C')){ e.preventDefault(); vekCopy(); return; }
+  if(mod&&(e.key==='v'||e.key==='V')){ e.preventDefault(); vekPaste(); return; }
+});
 
 /* ---------- TEKRAR (yanlış soruları yeniden çöz) ---------- */
 const TEKRAR_ESIK=2;  // öğrenildi için gereken üst üste doğru sayısı

@@ -935,31 +935,91 @@ function openKitapTest(test, dersId, matName){
 
 /* ----- ANALİZ ----- */
 let analizDers='';
+function kisaKitap(s){ s=s||''; return s.length>26 ? s.slice(0,24)+'…' : s; }
+function basariClass(b){ return b>=70?'ok':(b>=40?'warn':'bad'); }
 async function renderAnaliz(){
   const el=$('#view-analiz');
   const dersOpts=`<option value="">Tüm dersler</option>`+S.dersler.map(d=>`<option value="${d.id}" ${analizDers==d.id?'selected':''}>${esc(d.ad)}</option>`).join('');
   el.innerHTML=`<label class="fld" style="margin-top:16px"><span class="lab">Ders</span><select id="an_ders">${dersOpts}</select></label>
     <div id="an_body" style="margin-top:14px"><div class="sk"></div><div class="sk"></div></div>`;
   $('#an_ders').onchange=()=>{analizDers=$('#an_ders').value;renderAnaliz();};
-  // yanlis_konular + konu + ders
-  const {data,error}=await db.from('yanlis_konular').select('adet,konu_id,konular(ad,ders_id)');
   const body=$('#an_body');
-  if(error){body.innerHTML=`<div class="empty">Yüklenemedi</div>`;return;}
-  let rows=data||[];
-  if(analizDers) rows=rows.filter(r=>r.konular && r.konular.ders_id==analizDers);
-  const agg={};
-  rows.forEach(r=>{ if(!r.konular)return; const key=r.konu_id; agg[key]=agg[key]||{ad:r.konular.ad,ders:r.konular.ders_id,n:0}; agg[key].n+=r.adet||1; });
-  const list=Object.values(agg).sort((a,b)=>b.n-a.n);
-  const max=list.length?list[0].n:1;
-  const toplam=list.reduce((s,x)=>s+x.n,0);
-  if(!list.length){ body.innerHTML=`<div class="empty">Henüz yanlış konu verisi yok.<br>Sonuç girdikçe buraya konu bazında zayıflık haritası çıkacak.</div>`; return; }
-  body.innerHTML=`<div class="stat" style="margin-bottom:12px"><div class="n">${toplam}</div><div class="l">Toplam yanlış (işaretlenen konu)</div></div>
-    <div class="card pad">
-    ${list.map(x=>`<div style="margin-top:4px">
-       <div class="barrow"><div class="nm">${esc(x.ad)}${analizDers?'':` <span class="tiny">· ${dersAd(x.ders)}</span>`}</div><span class="chip ${x.n>=max*0.66?'bad':(x.n>=max*0.33?'warn':'')}">${x.n}</span></div>
-       <div class="bar ${x.n>=max*0.5?'bad':''}"><i style="width:${Math.max(7,x.n/max*100)}%"></i></div>
-     </div>`).join('')}
+
+  // Sonuçlar (net / başarı) + yanlış konular
+  let sq=db.from('sonuclar').select('ders_id,dogru,yanlis,bos,net,cozum_tarihi,created_at,materyal_testleri(test_no,bolum,unite,materyal_id,materyaller(ad))').order('created_at',{ascending:true});
+  if(analizDers) sq=sq.eq('ders_id',analizDers);
+  const {data:sonuc}=await sq;
+  const srows=(sonuc||[]).filter(r=>r);
+  const {data:ykData}=await db.from('yanlis_konular').select('adet,konu_id,konular(ad,ders_id)');
+  let yk=(ykData||[]);
+  if(analizDers) yk=yk.filter(r=>r.konular && r.konular.ders_id==analizDers);
+
+  if(!srows.length && !yk.length){
+    body.innerHTML=`<div class="empty">Henüz sonuç yok.<br>Test/deneme çözüldükçe burada net gelişimi, kitap başarısı ve konu zayıflığı çıkacak.</div>`;
+    return;
+  }
+
+  let h='';
+  if(srows.length){
+    const td=srows.reduce((s,r)=>s+(r.dogru||0),0);
+    const ty=srows.reduce((s,r)=>s+(r.yanlis||0),0);
+    const tb=srows.reduce((s,r)=>s+(r.bos||0),0);
+    const toplamSoru=td+ty+tb;
+    const basari= toplamSoru? Math.round(td/toplamSoru*100):0;
+    const toplamNet=srows.reduce((s,r)=>s+(+r.net||0),0);
+    h+=`<div class="row" style="gap:8px;margin-bottom:12px">
+      <div class="stat" style="flex:1"><div class="n">${srows.length}</div><div class="l">Çözülen test</div></div>
+      <div class="stat" style="flex:1"><div class="n">%${basari}</div><div class="l">Başarı</div></div>
+      <div class="stat" style="flex:1"><div class="n">${toplamNet.toFixed(1)}</div><div class="l">Toplam net</div></div>
+    </div>
+    <div class="card pad" style="margin-bottom:14px">
+      <div class="tiny" style="font-weight:700;margin-bottom:6px">Doğru · Yanlış · Boş</div>
+      <div class="barrow"><span class="nm">Doğru</span><span class="chip ok">${td}</span></div>
+      <div class="barrow"><span class="nm">Yanlış</span><span class="chip bad">${ty}</span></div>
+      <div class="barrow"><span class="nm">Boş</span><span class="chip warn">${tb}</span></div>
     </div>`;
+
+    // Net gelişimi (son 15, kronolojik)
+    const last=srows.slice(-15);
+    h+=`<h2 class="sec">Net gelişimi</h2><div class="card pad" style="margin-bottom:14px">`+
+      last.map(r=>{
+        const t=r.materyal_testleri; const kit=t&&t.materyaller?t.materyaller.ad:'';
+        const soru=(r.dogru||0)+(r.yanlis||0)+(r.bos||0);
+        const b= soru? Math.round((r.dogru||0)/soru*100):0;
+        const lbl=(t?((t.bolum||'Test')+' '+(t.test_no||'')):'Test');
+        return `<div style="margin-top:4px">
+          <div class="barrow"><div class="nm">${esc(lbl)} <span class="tiny">· ${esc(kisaKitap(kit))} · ${trDate(r.cozum_tarihi)}</span></div><span class="chip ${basariClass(b)}">net ${(+r.net).toFixed(2)}</span></div>
+          <div class="bar ${b<40?'bad':''}"><i style="width:${Math.max(5,b)}%"></i></div>
+        </div>`;
+      }).join('')+`</div>`;
+
+    // Kitap bazında başarı
+    const byKit={};
+    srows.forEach(r=>{ const t=r.materyal_testleri; const kit=t&&t.materyaller?t.materyaller.ad:'(diğer)'; const soru=(r.dogru||0)+(r.yanlis||0)+(r.bos||0); byKit[kit]=byKit[kit]||{d:0,s:0,n:0}; byKit[kit].d+=(r.dogru||0); byKit[kit].s+=soru; byKit[kit].n+=1; });
+    const kitList=Object.entries(byKit).map(([k,v])=>({ad:k,basari:v.s?Math.round(v.d/v.s*100):0,n:v.n})).sort((a,b)=>b.basari-a.basari);
+    h+=`<h2 class="sec">Kitap bazında başarı</h2><div class="card pad" style="margin-bottom:14px">`+
+      kitList.map(x=>`<div style="margin-top:4px">
+        <div class="barrow"><div class="nm">${esc(kisaKitap(x.ad))} <span class="tiny">· ${x.n} test</span></div><span class="chip ${basariClass(x.basari)}">%${x.basari}</span></div>
+        <div class="bar ${x.basari<40?'bad':''}"><i style="width:${Math.max(5,x.basari)}%"></i></div>
+      </div>`).join('')+`</div>`;
+  }
+
+  // Konu bazında zayıflık
+  const agg={};
+  yk.forEach(r=>{ if(!r.konular)return; const key=r.konu_id; agg[key]=agg[key]||{ad:r.konular.ad,ders:r.konular.ders_id,n:0}; agg[key].n+=r.adet||1; });
+  const klist=Object.values(agg).sort((a,b)=>b.n-a.n);
+  if(klist.length){
+    const kmax=klist[0].n;
+    h+=`<h2 class="sec">Konu bazında zayıflık</h2><div class="card pad">`+
+      klist.map(x=>`<div style="margin-top:4px">
+        <div class="barrow"><div class="nm">${esc(x.ad)}${analizDers?'':` <span class="tiny">· ${dersAd(x.ders)}</span>`}</div><span class="chip ${x.n>=kmax*0.66?'bad':(x.n>=kmax*0.33?'warn':'')}">${x.n}</span></div>
+        <div class="bar ${x.n>=kmax*0.5?'bad':''}"><i style="width:${Math.max(7,x.n/kmax*100)}%"></i></div>
+      </div>`).join('')+`</div>`;
+  } else if(srows.length){
+    h+=`<h2 class="sec">Konu bazında zayıflık</h2><div class="empty" style="padding:14px">Bu kitapların soruları konulara eşlenmediği için konu analizi henüz yok.</div>`;
+  }
+
+  body.innerHTML=h;
 }
 
 /* ----- RESULT SHEET (ödevden) ----- */

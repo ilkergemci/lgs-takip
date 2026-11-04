@@ -139,10 +139,26 @@
   .caq.ok{border-color:var(--okg);background:color-mix(in srgb,var(--okg) 9%,var(--surface))} .caq.ok .caq-a,.caq.ok .caq-s{color:var(--okg)}
   .caq.wrong{border-color:var(--kor);background:color-mix(in srgb,var(--kor) 11%,var(--surface))} .caq.wrong .caq-a,.caq.wrong .caq-s{color:var(--kor)}
   .caq.blank{border-color:var(--ink-3);background:color-mix(in srgb,var(--ink-3) 10%,var(--surface))}
-  .ck-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;border-top:1px solid var(--line)}
+  .ck-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-top:1px solid var(--line)}
   .ck-row:first-child{border-top:0}
   .ck-row .konu-sel{flex:1;max-width:64%;padding:8px 9px;font-size:12.5px;border-radius:9px}
   .cozum-line{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 13px 7px 20px;border-top:1px dashed var(--line);cursor:pointer}
+  .ck-row .vbtn{flex:none;padding:7px 9px;font-size:13px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--brand);cursor:pointer}
+  .vek-ed{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;flex-direction:column}
+  .vek-ed.open{display:flex}
+  .vek-top{flex:none;background:var(--surface);border-bottom:1px solid var(--line);padding:7px 8px}
+  .vek-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .vek-tools button,.vek-tools select,.vek-tools input[type=color]{font-size:13px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--ink);cursor:pointer;width:auto;min-height:36px;line-height:1}
+  .vek-tools input[type=color]{padding:2px;width:40px;height:36px}
+  .vek-tools button.on{background:var(--brand);color:var(--brand-ink);border-color:transparent}
+  .vek-tools .sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px;min-height:28px}
+  .vek-tools .grow{flex:1}
+  .vek-tools .save{background:var(--brand);color:var(--brand-ink);border-color:transparent;font-weight:700}
+  .vek-ttl{font-size:12px;color:var(--ink-3);padding:2px 2px 6px;font-weight:650}
+  .vek-ref{flex:none;max-height:32vh;overflow:auto;background:#111;text-align:center;border-bottom:1px solid var(--line)}
+  .vek-ref img{max-width:100%;max-height:32vh;object-fit:contain}
+  .vek-stage{flex:1;overflow:auto;background:var(--surface-2)}
+  .vek-stage .canvas-container{margin:10px auto;box-shadow:0 1px 10px rgba(0,0,0,.15)}
   .tkimg-wrap{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;overflow:auto;max-height:46vh;display:flex;justify-content:center}
   .tkimg{max-width:100%;height:auto;display:block}
   .tk-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -236,6 +252,33 @@
 
 <div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast"></div>
+
+<div class="vek-ed" id="vekEditor" aria-hidden="true">
+  <div class="vek-top">
+    <div class="vek-ttl" id="vekTitle">Vektör Editörü</div>
+    <div class="vek-tools" id="vekTools">
+      <button data-mode="select" class="on" title="Seç / Taşı">✋ Seç</button>
+      <button data-mode="text" title="Yazı ekle">🄰 Yazı</button>
+      <button data-mode="rect" title="Dikdörtgen">▭</button>
+      <button data-mode="ellipse" title="Elips / Daire">◯</button>
+      <button data-mode="line" title="Çizgi">╱</button>
+      <button data-mode="draw" title="Serbest çizim (kalem)">✎</button>
+      <span class="sep"></span>
+      <input type="color" id="vekColor" value="#1b2440" title="Renk">
+      <select id="vekWidth" title="Çizgi kalınlığı"><option value="1">ince</option><option value="2" selected>orta</option><option value="4">kalın</option><option value="7">çok kalın</option></select>
+      <select id="vekFont" title="Yazı boyutu"><option value="14">14</option><option value="20" selected>20</option><option value="26">26</option><option value="34">34</option></select>
+      <span class="sep"></span>
+      <button id="vekDel" title="Seçiliyi sil">🗑 Sil</button>
+      <button id="vekUndo" title="Geri al">↶</button>
+      <button id="vekRefBtn" title="Orijinal fotoğrafı göster/gizle">🖼 Orijinal</button>
+      <span class="grow"></span>
+      <button id="vekSave" class="save">Kaydet · Onayla</button>
+      <button id="vekClose" title="Kapat">✕</button>
+    </div>
+  </div>
+  <div class="vek-ref" id="vekRef" style="display:none"></div>
+  <div class="vek-stage" id="vekStage"><canvas id="vekCanvas"></canvas></div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"></script>
 <script>/* CDN yedeği: jsdelivr yüklenmezse unpkg'den dene */
@@ -1227,6 +1270,7 @@ async function openCozumDetay(sonucId,testId,odevId){
           <option value="">— konu seç —</option>
           ${ks.map(k=>`<option value="${k.id}" ${String(def)===String(k.id)?'selected':''}>${esc(k.ad)}</option>`).join('')}
         </select>
+        <button class="vbtn" title="Vektörü düzenle" onclick="openVektorEditor(${f.id})">✎ vektör</button>
       </div>`;
     }).join('')+`</div>
     <button class="btn brand block" style="margin-top:14px" id="ck_save">Konuları kaydet</button>`;
@@ -1267,6 +1311,128 @@ async function saveCozumKonu(sonucId,odevId,btn){
   const {data}=await db.from('odevler').select('*').eq('id',odevId).single();
   if(data) openResultSheet({fromOdev:data}); else closeSheet();
 }
+
+/* ---------- VEKTÖR EDİTÖRÜ (fabric.js ile çizim + yazı) ---------- */
+let _fabricP=null;
+function ensureFabric(){
+  if(window.fabric) return Promise.resolve();
+  if(_fabricP) return _fabricP;
+  _fabricP=new Promise((res,rej)=>{
+    const add=(src,next)=>{ const s=document.createElement('script'); s.src=src; s.onload=()=>res(); s.onerror=next; document.head.appendChild(s); };
+    add('https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js',
+      ()=>add('https://unpkg.com/fabric@5.3.0/dist/fabric.min.js',
+        ()=>rej(new Error('fabric yüklenemedi'))));
+  });
+  return _fabricP;
+}
+let VEK=null;
+async function openVektorEditor(fotoId){
+  try{ await ensureFabric(); }catch(e){ toast('Editör yüklenemedi (internet?)'); return; }
+  const {data:row,error}=await db.from('yanlis_foto')
+    .select('id,materyal_test_id,soru_no,tip,foto_url,temiz_url,vektor_url,vektor_path').eq('id',fotoId).single();
+  if(error||!row){ toast('Soru bulunamadı'); return; }
+  const ed=$('#vekEditor'); ed.classList.add('open'); ed.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
+  $('#vekTitle').textContent=`Soru ${row.soru_no} · ${row.tip==='bos'?'boş':'yanlış'} — vektör düzenle`;
+  const ref=$('#vekRef'); ref.style.display='none'; ref.innerHTML = (row.foto_url||row.temiz_url)?`<img src="${esc(row.foto_url||row.temiz_url)}" alt="orijinal">`:'';
+  let W=900,H=600, svg=null;
+  if(row.vektor_url){ try{ svg=await fetch(row.vektor_url.split('?')[0]+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.text()); }catch(_){ } }
+  if(svg){ const vb=(svg.match(/viewBox="([-\d.\s]+)"/)||[])[1]; if(vb){ const p=vb.trim().split(/\s+/).map(Number); if(p.length===4&&p[2]>0&&p[3]>0){ W=p[2]; H=p[3]; } } }
+  if(VEK&&VEK.canvas){ try{VEK.canvas.dispose();}catch(_){ } }
+  const canvas=new fabric.Canvas('vekCanvas',{backgroundColor:'#ffffff',preserveObjectStacking:true});
+  VEK={canvas,row,W,H,mode:'select',color:'#1b2440',width:2,font:20,history:[],_loading:false};
+  vekFit();
+  bindVekCanvas(canvas);
+  if(svg){
+    VEK._loading=true;
+    fabric.loadSVGFromString(svg,(objs)=>{
+      objs.forEach(o=>{
+        let obj=o;
+        if(o&&(o.type==='text'||o.type==='i-text')){
+          obj=new fabric.IText(o.text||'',{left:o.left,top:o.top,fontSize:o.fontSize||20,fill:o.fill||'#1b2440',
+            fontFamily:o.fontFamily||'Arial',fontWeight:o.fontWeight,fontStyle:o.fontStyle,angle:o.angle||0,
+            scaleX:o.scaleX||1,scaleY:o.scaleY||1,textAlign:o.textAlign,originX:o.originX||'left',originY:o.originY||'top'});
+        }
+        if(obj){ obj.selectable=true; obj.evented=true; canvas.add(obj); }
+      });
+      canvas.requestRenderAll(); VEK._loading=false; vekPush();
+    });
+  } else { vekPush(); }
+  wireVekTools();
+}
+function vekFit(){
+  if(!VEK) return; const stage=$('#vekStage'); const sw=Math.max(240,stage.clientWidth); const zoom=sw/VEK.W;
+  VEK.canvas.setZoom(zoom); VEK.canvas.setWidth(VEK.W*zoom); VEK.canvas.setHeight(VEK.H*zoom); VEK.canvas.requestRenderAll();
+}
+function bindVekCanvas(c){
+  let draft=null, start=null;
+  c.on('mouse:down',opt=>{
+    if(VEK.mode==='select'||VEK.mode==='draw') return;
+    const p=c.getPointer(opt.e); start=p;
+    if(VEK.mode==='text'){
+      const t=new fabric.IText('Yazı',{left:p.x,top:p.y,fontSize:VEK.font,fill:VEK.color,fontFamily:'Arial'});
+      c.add(t); c.setActiveObject(t); t.enterEditing(); if(t.selectAll)t.selectAll(); vekSetMode('select'); vekPush(); return;
+    }
+    if(VEK.mode==='rect') draft=new fabric.Rect({left:p.x,top:p.y,width:1,height:1,fill:'',stroke:VEK.color,strokeWidth:VEK.width});
+    else if(VEK.mode==='ellipse') draft=new fabric.Ellipse({left:p.x,top:p.y,rx:1,ry:1,fill:'',stroke:VEK.color,strokeWidth:VEK.width});
+    else if(VEK.mode==='line') draft=new fabric.Line([p.x,p.y,p.x,p.y],{stroke:VEK.color,strokeWidth:VEK.width});
+    if(draft) c.add(draft);
+  });
+  c.on('mouse:move',opt=>{
+    if(!draft||!start) return; const p=c.getPointer(opt.e);
+    if(VEK.mode==='rect') draft.set({left:Math.min(p.x,start.x),top:Math.min(p.y,start.y),width:Math.abs(p.x-start.x),height:Math.abs(p.y-start.y)});
+    else if(VEK.mode==='ellipse') draft.set({left:Math.min(p.x,start.x),top:Math.min(p.y,start.y),rx:Math.abs(p.x-start.x)/2,ry:Math.abs(p.y-start.y)/2});
+    else if(VEK.mode==='line') draft.set({x2:p.x,y2:p.y});
+    c.requestRenderAll();
+  });
+  c.on('mouse:up',()=>{ if(draft){ draft.setCoords(); draft=null; start=null; vekSetMode('select'); vekPush(); } });
+  c.on('path:created',()=>vekPush());
+  c.on('object:modified',()=>vekPush());
+}
+function vekSetMode(m){
+  if(!VEK) return; VEK.mode=m; const c=VEK.canvas;
+  c.isDrawingMode=(m==='draw');
+  if(m==='draw'&&c.freeDrawingBrush){ c.freeDrawingBrush.color=VEK.color; c.freeDrawingBrush.width=VEK.width; }
+  c.selection=(m==='select');
+  c.forEachObject(o=>{ o.selectable=(m==='select'); o.evented=(m==='select'); });
+  if(m!=='select') c.discardActiveObject();
+  c.requestRenderAll();
+  $$('#vekTools [data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+}
+function vekPush(){ if(!VEK||VEK._loading) return; try{ VEK.history.push(JSON.stringify(VEK.canvas.toJSON())); if(VEK.history.length>40)VEK.history.shift(); }catch(_){ } }
+function vekUndo(){ if(!VEK||VEK.history.length<2) return; VEK.history.pop(); const st=VEK.history[VEK.history.length-1]; VEK._loading=true; VEK.canvas.loadFromJSON(st,()=>{ VEK.canvas.requestRenderAll(); VEK._loading=false; vekSetMode('select'); }); }
+function vekDel(){ if(!VEK) return; const c=VEK.canvas; const objs=c.getActiveObjects(); if(!objs.length) return; objs.forEach(o=>c.remove(o)); c.discardActiveObject(); c.requestRenderAll(); vekPush(); }
+function vekSetColor(v){ if(!VEK) return; VEK.color=v; const c=VEK.canvas; const o=c.getActiveObject(); if(o){ if(o.type==='i-text'||o.type==='text')o.set('fill',v); else o.set('stroke',v); c.requestRenderAll(); vekPush(); } if(c.freeDrawingBrush)c.freeDrawingBrush.color=v; }
+function vekSetWidth(w){ if(!VEK) return; VEK.width=+w; const c=VEK.canvas; const o=c.getActiveObject(); if(o&&o.type!=='i-text'&&o.type!=='text'&&o.strokeWidth!=null){ o.set('strokeWidth',+w); c.requestRenderAll(); vekPush(); } if(c.freeDrawingBrush)c.freeDrawingBrush.width=+w; }
+function vekSetFont(s){ if(!VEK) return; VEK.font=+s; const o=VEK.canvas.getActiveObject(); if(o&&(o.type==='i-text'||o.type==='text')){ o.set('fontSize',+s); VEK.canvas.requestRenderAll(); vekPush(); } }
+function vekToggleRef(){ const r=$('#vekRef'); if(!r.innerHTML){ toast('Orijinal fotoğraf yok'); return; } r.style.display=(r.style.display==='none'?'block':'none'); }
+async function saveVektorEdit(){
+  if(!VEK) return; const c=VEK.canvas, row=VEK.row; const btn=$('#vekSave');
+  let svg; try{ svg=c.toSVG({width:VEK.W,height:VEK.H,viewBox:{x:0,y:0,width:VEK.W,height:VEK.H}}); }catch(e){ toast('SVG üretilemedi'); return; }
+  const path=row.vektor_path||`${row.materyal_test_id}/${row.id}_vektor.svg`;
+  if(btn){ btn.disabled=true; btn.textContent='Kaydediliyor…'; }
+  const up=await db.storage.from('yanlis-foto').upload(path,new Blob([svg],{type:'image/svg+xml'}),{contentType:'image/svg+xml',upsert:true});
+  if(up.error){ toast('Kaydedilemedi: '+up.error.message); if(btn){btn.disabled=false;btn.textContent='Kaydet · Onayla';} return; }
+  const pub=db.storage.from('yanlis-foto').getPublicUrl(path).data.publicUrl;
+  const r=await db.from('yanlis_foto').update({vektor_path:path,vektor_url:pub+'?t='+Date.now(),vektor_durum:'hazir',vektor_onayli:true,vektor_hata:null}).eq('id',row.id);
+  if(btn){ btn.disabled=false; btn.textContent='Kaydet · Onayla'; }
+  if(r.error){ toast('DB güncellenemedi'); return; }
+  toast('Vektör kaydedildi ✓ onaylı'); closeVektorEditor();
+}
+function closeVektorEditor(){ const ed=$('#vekEditor'); ed.classList.remove('open'); ed.setAttribute('aria-hidden','true'); document.body.style.overflow=''; if(VEK&&VEK.canvas){ try{VEK.canvas.dispose();}catch(_){ } } VEK=null; }
+function wireVekTools(){
+  $$('#vekTools [data-mode]').forEach(b=> b.onclick=()=>vekSetMode(b.dataset.mode));
+  const col=$('#vekColor'); col.value=VEK.color; col.oninput=e=>vekSetColor(e.target.value);
+  $('#vekWidth').onchange=e=>vekSetWidth(e.target.value);
+  $('#vekFont').onchange=e=>vekSetFont(e.target.value);
+  $('#vekDel').onclick=vekDel;
+  $('#vekUndo').onclick=vekUndo;
+  $('#vekRefBtn').onclick=vekToggleRef;
+  $('#vekSave').onclick=saveVektorEdit;
+  $('#vekClose').onclick=()=>{ if(confirm('Kaydetmeden çıkılsın mı?')) closeVektorEditor(); };
+  vekSetMode('select');
+}
+window.addEventListener('resize',()=>{ if(VEK&&$('#vekEditor').classList.contains('open')) vekFit(); });
+window.addEventListener('keydown',e=>{ if(!VEK||!$('#vekEditor').classList.contains('open'))return; const a=VEK.canvas.getActiveObject(); if((e.key==='Delete'||e.key==='Backspace')&&a&&!(a.isEditing)){ e.preventDefault(); vekDel(); } });
 
 /* ---------- TEKRAR (yanlış soruları yeniden çöz) ---------- */
 const TEKRAR_ESIK=2;  // öğrenildi için gereken üst üste doğru sayısı

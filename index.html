@@ -1664,14 +1664,9 @@ function tekrarGoster(st){
       </span>
     </div>
     <div class="tkimg-wrap"><img class="tkimg" id="tk_img" src="${esc(src)}" alt="soru"></div>
-    <div class="row" style="justify-content:flex-end;margin:6px 2px 2px">
-      <button class="btn sm" id="tk_orig">${st.showOrig?'Temiz/çözülecek hali':'Nasıl çözmüştü? (orijinal)'}</button>
-    </div>
     <p class="hint" style="margin:12px 2px 6px">Doğru cevabı işaretle:</p>
     <div class="tk-opts" id="tk_opts">${['A','B','C','D'].map(o=>`<button class="tk-opt" data-o="${o}">${o}</button>`).join('')}</div>
     <div id="tk_fb" style="margin-top:12px"></div>`);
-  // orijinal/temiz geçiş
-  $('#tk_orig').onclick=()=>{ st.showOrig=!st.showOrig; $('#tk_img').src = st.showOrig ? (r.foto_url||src) : src; $('#tk_orig').textContent = st.showOrig?'Temiz/çözülecek hali':'Nasıl çözmüştü? (orijinal)'; };
   const opts=$('#tk_opts');
   opts.onclick=async (e)=>{
     const b=e.target.closest('.tk-opt'); if(!b||st._answered) return;

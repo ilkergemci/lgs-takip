@@ -1183,7 +1183,7 @@ async function renderOdevTests(odev){
   const done={};
   if(tids.length){
     const {data}=await db.from('sonuclar').select('id,materyal_test_id,dogru,yanlis,bos,cozum_tarihi')
-      .eq('odev_id',odev.id).in('materyal_test_id',tids).order('cozum_tarihi',{ascending:false});
+      .in('materyal_test_id',tids).order('cozum_tarihi',{ascending:false});
     (data||[]).forEach(s=>{ if(s.materyal_test_id) (done[s.materyal_test_id]=done[s.materyal_test_id]||[]).push(s); });
   }
   // ödev kitabını katalogla eşleştir (serbest metin → materyal)

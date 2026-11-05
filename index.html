@@ -144,6 +144,8 @@
   .ck-row .konu-sel{flex:1;max-width:64%;padding:8px 9px;font-size:12.5px;border-radius:9px}
   .cozum-line{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 13px 7px 20px;border-top:1px dashed var(--line);cursor:pointer}
   .ck-row .vbtn{flex:none;padding:7px 9px;font-size:13px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--brand);cursor:pointer}
+  .soru-chip{padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--ink);font-size:13px;font-weight:650;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .soru-chip.has{border-color:var(--okg);color:var(--okg)}
   .vek-ed{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;flex-direction:column}
   .vek-ed.open{display:flex}
   .vek-top{flex:none;background:var(--surface);border-bottom:1px solid var(--line);padding:7px 8px}
@@ -1584,10 +1586,16 @@ async function renderTekrar(){
   gArr.forEach(g=>{
     if(g.mat.ders_id!==curD){ curD=g.mat.ders_id; h+=`<h2 class="sec">${esc(dersAd(curD))}</h2>`; }
     const lbl=testLabel({unite:g.t.unite,bolum:g.t.bolum,test_no:g.t.test_no,id:g.t.id});
-    h+=`<div class="card" style="padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px">
-        <div style="min-width:0"><div style="font-weight:650;font-size:13.5px">${esc(g.mat.ad||'')}</div>
-          <div class="tiny">${esc(lbl)} · ${g.items.length} yanlış soru</div></div>
-        <button class="btn sm brand" onclick='tekrarBasla(window._tekrarAll.filter(x=>x.materyal_test_id==${g.t.id}))'>Başla ›</button>
+    h+=`<div class="card" style="padding:12px 14px;margin-bottom:8px">
+        <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+          <div style="min-width:0"><div style="font-weight:650;font-size:13.5px">${esc(g.mat.ad||'')}</div>
+            <div class="tiny">${esc(lbl)} · ${g.items.length} yanlış soru</div></div>
+          <button class="btn sm brand" onclick='tekrarBasla(window._tekrarAll.filter(x=>x.materyal_test_id==${g.t.id}))'>Başla ›</button>
+        </div>
+        <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:10px">
+          ${g.items.map(it=>`<button class="soru-chip ${it.konu_id?'has':''}" onclick="openSoruDuzenleById(${it.id})">Soru ${it.soru_no}${it.tip==='bos'?' · boş':''}${it.konu_id?' ●':''}</button>`).join('')}
+        </div>
+        <div class="tiny" style="margin-top:7px;color:var(--ink-3)">Başla: öğrenci çözer · Soruya dokun: çizim ve konu düzenle</div>
       </div>`;
   });
   el.innerHTML=h;
@@ -1612,13 +1620,42 @@ async function saveSoruKonu(fotoId, sonucId, konuId){
   }
   return true;
 }
+function openSoruDuzenleById(id){ const r=(window._tekrarAll||[]).find(x=>x.id===id); if(!r){ toast('Soru bulunamadı'); return; } openSoruDuzenle(r); }
+function openSoruDuzenle(r){
+  const src=bestFotoUrl(r);
+  const ks=S.konByDers[(r._mat&&r._mat.ders_id)]||[];
+  const konuOpts=`<option value="">— konu seç —</option>`+ks.map(k=>`<option value="${k.id}" ${String(r.konu_id)===String(k.id)?'selected':''}>${esc(k.ad)}</option>`).join('');
+  const t=r._t||{}; const lbl=testLabel({unite:t.unite,bolum:t.bolum,test_no:t.test_no,id:t.id});
+  sheet(`<button class="btn sm" id="sd_back" style="margin-bottom:8px">‹ Geri</button>
+    <h3>Soru ${r.soru_no} · ${r.tip==='bos'?'boş':'yanlış'}</h3>
+    <p class="hint">${esc((r._mat&&r._mat.ad)||'')} · ${esc(lbl)}</p>
+    <div class="tkimg-wrap" id="sd_imgwrap" title="Çizimi düzenlemek için dokun" style="cursor:pointer"><img class="tkimg" id="sd_img" src="${esc(src)}" alt="soru"></div>
+    <div class="row" style="justify-content:space-between;margin:8px 2px 2px;gap:6px;flex-wrap:wrap">
+      <button class="btn sm brand" id="sd_edit">✎ Çizimi düzenle</button>
+      <button class="btn sm" id="sd_orig">Orijinali gör</button>
+    </div>
+    <h2 class="sec" style="margin-top:16px">Konu</h2>
+    <div class="row" style="gap:8px;align-items:center">
+      <span class="tiny" style="white-space:nowrap;font-weight:650">Hangi konudan?</span>
+      <select id="sd_konu" class="konu-sel" style="flex:1;max-width:none">${ks.length?konuOpts:'<option value="">(bu ders için konu yok)</option>'}</select>
+    </div>
+    <p class="tiny" style="margin:6px 2px 0;color:var(--ink-3)">Seçince ödevdeki yanlış konu olarak işaretlenir (Analiz'e işler).</p>`);
+  $('#sd_back').onclick=()=>{ closeSheet(); setView('tekrar'); };
+  let showOrig=false;
+  $('#sd_orig').onclick=()=>{ showOrig=!showOrig; $('#sd_img').src= showOrig?(r.foto_url||src):bestFotoUrl(r); $('#sd_orig').textContent= showOrig?'Temiz/vektör hali':'Orijinali gör'; };
+  const openEdit=()=>openVektorEditor(r.id, async()=>{
+    const {data}=await db.from('yanlis_foto').select('vektor_url,vektor_durum,temiz_url,foto_url').eq('id',r.id).single();
+    if(data){ Object.assign(r,data); const im=$('#sd_img'); if(im) im.src=bestFotoUrl(r); showOrig=false; const ob=$('#sd_orig'); if(ob)ob.textContent='Orijinali gör'; }
+  });
+  $('#sd_edit').onclick=openEdit; $('#sd_imgwrap').onclick=openEdit;
+  const ksel=$('#sd_konu');
+  if(ksel && ks.length) ksel.onchange=async()=>{ const v=ksel.value?+ksel.value:null; ksel.disabled=true; const ok=await saveSoruKonu(r.id,r.sonuc_id,v); ksel.disabled=false; if(ok){ r.konu_id=v; toast(v?'Konu işaretlendi ✓':'Konu kaldırıldı'); } };
+}
 function tekrarGoster(st){
   const r=st.list[st.i];
   const total=st.list.length, n=st.i+1;
   const src=bestFotoUrl(r), kaynak=fotoKaynak(r);
   const tipEt = r.tip==='bos'?'Boş bırakılmıştı':'Yanlış yapılmıştı';
-  const ks=S.konByDers[(r._mat&&r._mat.ders_id)]||[];
-  const konuOpts=`<option value="">— konu seç —</option>`+ks.map(k=>`<option value="${k.id}" ${String(r.konu_id)===String(k.id)?'selected':''}>${esc(k.ad)}</option>`).join('');
   sheet(`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
       <span class="tiny">${n} / ${total}</span>
       <span class="row" style="gap:6px">
@@ -1626,32 +1663,15 @@ function tekrarGoster(st){
         <span class="chip ${r.tip==='bos'?'':'bad'}">${tipEt}</span>
       </span>
     </div>
-    <div class="tkimg-wrap" id="tk_imgwrap" title="Düzenlemek için dokun" style="cursor:pointer"><img class="tkimg" id="tk_img" src="${esc(src)}" alt="soru"></div>
-    <div class="row" style="justify-content:space-between;margin:6px 2px 2px;gap:6px;flex-wrap:wrap">
-      <span class="tiny">Kaynak: ${kaynak}</span>
-      <span class="row" style="gap:6px">
-        <button class="btn sm" id="tk_edit" style="color:var(--brand)">✎ Düzenle</button>
-        <button class="btn sm" id="tk_orig">${st.showOrig?'Temiz/çözülecek hali':'Nasıl çözmüştü? (orijinal)'}</button>
-      </span>
+    <div class="tkimg-wrap"><img class="tkimg" id="tk_img" src="${esc(src)}" alt="soru"></div>
+    <div class="row" style="justify-content:flex-end;margin:6px 2px 2px">
+      <button class="btn sm" id="tk_orig">${st.showOrig?'Temiz/çözülecek hali':'Nasıl çözmüştü? (orijinal)'}</button>
     </div>
-    <div class="row" style="gap:8px;align-items:center;margin:10px 2px 2px">
-      <span class="tiny" style="white-space:nowrap;font-weight:650">Bu soru hangi konudan?</span>
-      <select id="tk_konu" class="konu-sel" style="flex:1;max-width:none">${ks.length?konuOpts:'<option value="">(bu ders için konu yok)</option>'}</select>
-    </div>
-    <p class="tiny" style="margin:2px 2px 0;color:var(--ink-3)">Seçince ödevdeki yanlış konu olarak otomatik işaretlenir (Analiz'e işler).</p>
     <p class="hint" style="margin:12px 2px 6px">Doğru cevabı işaretle:</p>
     <div class="tk-opts" id="tk_opts">${['A','B','C','D'].map(o=>`<button class="tk-opt" data-o="${o}">${o}</button>`).join('')}</div>
     <div id="tk_fb" style="margin-top:12px"></div>`);
   // orijinal/temiz geçiş
   $('#tk_orig').onclick=()=>{ st.showOrig=!st.showOrig; $('#tk_img').src = st.showOrig ? (r.foto_url||src) : src; $('#tk_orig').textContent = st.showOrig?'Temiz/çözülecek hali':'Nasıl çözmüştü? (orijinal)'; };
-  const openEdit=()=>openVektorEditor(r.id, async()=>{
-    const {data}=await db.from('yanlis_foto').select('vektor_url,vektor_durum,temiz_url,foto_url').eq('id',r.id).single();
-    if(data){ Object.assign(r,data); st.showOrig=false; const im=$('#tk_img'); if(im) im.src=bestFotoUrl(r); const ob=$('#tk_orig'); if(ob)ob.textContent='Nasıl çözmüştü? (orijinal)'; }
-  });
-  $('#tk_edit').onclick=openEdit;
-  $('#tk_imgwrap').onclick=openEdit;
-  const ksel=$('#tk_konu');
-  if(ksel && ks.length) ksel.onchange=async()=>{ const v=ksel.value?+ksel.value:null; ksel.disabled=true; const ok=await saveSoruKonu(r.id,r.sonuc_id,v); ksel.disabled=false; if(ok){ r.konu_id=v; toast(v?'Konu işaretlendi ✓':'Konu kaldırıldı'); } };
   const opts=$('#tk_opts');
   opts.onclick=async (e)=>{
     const b=e.target.closest('.tk-opt'); if(!b||st._answered) return;

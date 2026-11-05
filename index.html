@@ -1420,24 +1420,29 @@ async function openVektorEditor(fotoId,onClose){
   let W=900,H=600, svg=null;
   if(row.vektor_url){ try{ svg=await fetch(row.vektor_url.split('?')[0]+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.text()); }catch(_){ } }
   if(svg){ const vb=(svg.match(/viewBox="([-\d.\s]+)"/)||[])[1]; if(vb){ const p=vb.trim().split(/\s+/).map(Number); if(p.length===4&&p[2]>0&&p[3]>0){ W=p[2]; H=p[3]; } } }
+  // Kayıpsız düzenleme için fabric JSON (varsa) — SVG tur-döngüsü metni/üssü bozuyor
+  const jsonPath = row.vektor_path ? row.vektor_path.replace(/\.svg$/,'.json') : `${row.materyal_test_id}/${row.id}_vektor.json`;
+  let fjson=null;
+  try{ const ju=db.storage.from('yanlis-foto').getPublicUrl(jsonPath).data.publicUrl; const jr=await fetch(ju+'?v='+Date.now(),{cache:'no-store'}); if(jr.ok){ const txt=await jr.text(); if(txt && txt.trim()[0]==='{'){ fjson=JSON.parse(txt); } } }catch(_){ }
   if(VEK&&VEK.canvas){ try{VEK.canvas.dispose();}catch(_){ } }
   const canvas=new fabric.Canvas('vekCanvas',{backgroundColor:'#ffffff',preserveObjectStacking:true});
-  VEK={canvas,row,W,H,mode:'select',color:'#1b2440',width:2,font:20,history:[],_loading:false,_onClose:onClose||null};
+  VEK={canvas,row,W,H,jsonPath,mode:'select',color:'#1b2440',width:2,font:20,history:[],_loading:false,_onClose:onClose||null};
   vekFit();
   bindVekCanvas(canvas);
-  if(svg){
+  if(fjson){
+    VEK._loading=true;
+    canvas.loadFromJSON(fjson,()=>{ canvas.forEachObject(o=>{ o.selectable=true; o.evented=true; }); canvas.requestRenderAll(); VEK._loading=false; vekPush(); });
+  } else if(svg){
     VEK._loading=true;
     fabric.loadSVGFromString(svg,(objs)=>{
+      let pending=objs.length||0; if(!pending){ VEK._loading=false; vekPush(); }
+      const done=()=>{ if(--pending<=0){ canvas.requestRenderAll(); VEK._loading=false; vekPush(); } };
       objs.forEach(o=>{
-        let obj=o;
-        if(o&&(o.type==='text'||o.type==='i-text')){
-          obj=new fabric.IText(o.text||'',{left:o.left,top:o.top,fontSize:o.fontSize||20,fill:o.fill||'#1b2440',
-            fontFamily:o.fontFamily||'Arial',fontWeight:o.fontWeight,fontStyle:o.fontStyle,angle:o.angle||0,
-            scaleX:o.scaleX||1,scaleY:o.scaleY||1,textAlign:o.textAlign,originX:o.originX||'left',originY:o.originY||'top'});
-        }
-        if(obj){ obj.selectable=true; obj.evented=true; canvas.add(obj); }
+        if(o && o.type==='text'){
+          const ob=o.toObject(['styles']); ob.type='i-text';
+          fabric.IText.fromObject(ob,(it)=>{ it.selectable=true; it.evented=true; canvas.add(it); done(); });
+        } else { if(o){ o.selectable=true; o.evented=true; canvas.add(o); } done(); }
       });
-      canvas.requestRenderAll(); VEK._loading=false; vekPush();
     });
   } else { vekPush(); }
   wireVekTools();
@@ -1544,6 +1549,8 @@ async function saveVektorEdit(){
   if(btn){ btn.disabled=true; btn.textContent='Kaydediliyor…'; }
   const up=await db.storage.from('yanlis-foto').upload(path,new Blob([svg],{type:'image/svg+xml'}),{contentType:'image/svg+xml',upsert:true});
   if(up.error){ toast('Kaydedilemedi: '+up.error.message); if(btn){btn.disabled=false;btn.textContent='Kaydet · Onayla';} return; }
+  // Kayıpsız düzenleme için fabric JSON'u da sakla (best-effort)
+  try{ const json=JSON.stringify(c.toJSON()); const jp=VEK.jsonPath||path.replace(/\.svg$/,'.json'); await db.storage.from('yanlis-foto').upload(jp,new Blob([json],{type:'application/json'}),{contentType:'application/json',upsert:true}); }catch(_){ }
   const pub=db.storage.from('yanlis-foto').getPublicUrl(path).data.publicUrl;
   const r=await db.from('yanlis_foto').update({vektor_path:path,vektor_url:pub+'?t='+Date.now(),vektor_durum:'hazir',vektor_onayli:true,vektor_hata:null}).eq('id',row.id);
   if(btn){ btn.disabled=false; btn.textContent='Kaydet · Onayla'; }

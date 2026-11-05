@@ -1219,7 +1219,7 @@ async function renderOdevTests(odev){
       </div>`;
     }).join('')+`</div>`;
   } else {
-    h+=`<p class="hint" style="margin:6px 0 10px">Henüz test eklenmedi. Öğretmenin verdiği sayfalar hangi test(ler)e denk geliyorsa aşağıdan seçip ekle.</p>`;
+    h+=`<p class="hint" style="margin:6px 0 10px">Henüz test eklenmedi.${isVeli()?' Öğretmenin verdiği sayfalar hangi test(ler)e denk geliyorsa aşağıdan seçip ekle.':' Test eklemek için veli girişi (1907) gerekir.'}</p>`;
   }
   if(isVeli()) h+=`<div class="card" style="padding:12px">
       <div class="tiny" style="margin-bottom:8px;font-weight:700">Test ekle</div>

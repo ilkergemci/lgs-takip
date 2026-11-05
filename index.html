@@ -878,13 +878,8 @@ async function saveKitapResult(ctx){
   // 0) yanlış/boş fotoğraflarını yükle (önce; hata olursa hiçbir şey kaydetme)
   let fotos=[];
   if(ctx.hasCA){ try{ fotos=await uploadPhotos(ctx); }catch(e){ toast('Fotoğraf yüklenemedi, tekrar dene'); $('#k_save').disabled=false; return; } }
-  // 1) yapıldı ödevi oluştur (kitap testi kaydı)
-  const matName = (await db.from('materyal_testleri').select('materyaller(ad)').eq('id',ctx.test.id).single()).data?.materyaller?.ad || null;
-  const odev={ ders_id:ctx.dersId, kaynak:'veli', baslik:testLabel(ctx.test), materyal:matName,
-     materyal_test_id:ctx.test.id, tur:'test', durum:'yapildi', verilis_tarihi:$('#k_date').value||todayISO(), teslim_tarihi:null };
-  const odevRes=await db.from('odevler').insert(odev).select('id').single();
-  if(odevRes.error){toast('Hata: '+odevRes.error.message);$('#k_save').disabled=false;return;}
-  const sonuc={ odev_id:odevRes.data.id, ders_id:ctx.dersId, materyal_test_id:ctx.test.id, dogru:d, yanlis:y, bos:b, cozum_tarihi:$('#k_date').value||todayISO() };
+  // 1) kitaptan çözüm = sadece SONUÇ kaydı (ödev oluşturma); ödev bağlantısı yok
+  const sonuc={ odev_id:null, ders_id:ctx.dersId, materyal_test_id:ctx.test.id, dogru:d, yanlis:y, bos:b, cozum_tarihi:$('#k_date').value||todayISO() };
   const sRes=await db.from('sonuclar').insert(sonuc).select('id').single();
   if(sRes.error){toast('Hata: '+sRes.error.message);$('#k_save').disabled=false;return;}
   const yk=Object.entries(konu).map(([konu_id,adet])=>({sonuc_id:sRes.data.id,konu_id:+konu_id,adet}));

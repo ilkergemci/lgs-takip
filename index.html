@@ -146,6 +146,10 @@
   .ck-row .vbtn{flex:none;padding:7px 9px;font-size:13px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--brand);cursor:pointer}
   .soru-chip{padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--ink);font-size:13px;font-weight:650;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .soru-chip.has{border-color:var(--okg);color:var(--okg)}
+  .egate{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:20px}
+  .egate.open{display:flex}
+  .egate-box{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;width:100%;max-width:340px;box-shadow:0 12px 44px rgba(0,0,0,.35)}
+  .egate-box input{width:100%}
   .vek-ed{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;flex-direction:column}
   .vek-ed.open{display:flex}
   .vek-top{flex:none;background:var(--surface);border-bottom:1px solid var(--line);padding:7px 8px}
@@ -260,6 +264,19 @@
 <div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast"></div>
 
+<div class="egate" id="editGate" aria-hidden="true">
+  <div class="egate-box">
+    <h3 style="margin:0 0 4px">Düzenleme şifresi</h3>
+    <p class="hint" style="margin:0 0 12px">Bu bölüm veli içindir.</p>
+    <input type="password" id="eg_pin" inputmode="numeric" placeholder="Şifre" autocomplete="off">
+    <div id="eg_err" class="tiny" style="color:var(--bad);min-height:16px;margin:6px 2px"></div>
+    <div class="row" style="gap:8px">
+      <button class="btn" id="eg_cancel" style="flex:1">Vazgeç</button>
+      <button class="btn brand" id="eg_ok" style="flex:1">Gir</button>
+    </div>
+  </div>
+</div>
+
 <div class="vek-ed" id="vekEditor" aria-hidden="true">
   <div class="vek-top">
     <div class="vek-ttl" id="vekTitle">Vektör Editörü</div>
@@ -298,6 +315,7 @@ if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/su
 const SB_URL = "https://gplfwgtegmxdsemsiszf.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwbGZ3Z3RlZ214ZHNlbXNpc3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MzAxMTUsImV4cCI6MjEwOTEwNjExNX0.aa4slgeXqrFvK9zvo0NAECiHmUkg_fjlepCk00gdPaQ";
 const APP_PIN = "2026"; // İsterseniz bu satırı değiştirin
+const EDIT_PIN = "2468"; // Düzenleme (veli) şifresi — değiştirebilirsiniz
 if(!window.supabase || !window.supabase.createClient){
   document.body.innerHTML='<div style="padding:46px 24px;max-width:420px;margin:40px auto;text-align:center;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#444">'
     +'<div style="font-size:40px">📶</div><h2 style="margin:12px 0 6px">Sayfa yüklenemedi</h2>'
@@ -1344,7 +1362,7 @@ async function openCozumDetay(sonucId,testId,odevId){
           <option value="">— konu seç —</option>
           ${ks.map(k=>`<option value="${k.id}" ${String(def)===String(k.id)?'selected':''}>${esc(k.ad)}</option>`).join('')}
         </select>
-        <button class="vbtn" title="Vektörü düzenle" onclick="openVektorEditor(${f.id})">✎ vektör</button>
+        <button class="vbtn" title="Vektörü düzenle" onclick="requireEdit(()=>openVektorEditor(${f.id}))">✎ vektör</button>
       </div>`;
     }).join('')+`</div>
     <button class="btn brand block" style="margin-top:14px" id="ck_save">Konuları kaydet</button>`;
@@ -1593,7 +1611,7 @@ async function renderTekrar(){
           <button class="btn sm brand" onclick='tekrarBasla(window._tekrarAll.filter(x=>x.materyal_test_id==${g.t.id}))'>Başla ›</button>
         </div>
         <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:10px">
-          ${g.items.map(it=>`<button class="soru-chip ${it.konu_id?'has':''}" onclick="openSoruDuzenleById(${it.id})">Soru ${it.soru_no}${it.tip==='bos'?' · boş':''}${it.konu_id?' ●':''}</button>`).join('')}
+          ${g.items.map(it=>`<button class="soru-chip ${it.konu_id?'has':''}" onclick="requireEdit(()=>openSoruDuzenleById(${it.id}))">Soru ${it.soru_no}${it.tip==='bos'?' · boş':''}${it.konu_id?' ●':''}</button>`).join('')}
         </div>
         <div class="tiny" style="margin-top:7px;color:var(--ink-3)">Başla: öğrenci çözer · Soruya dokun: çizim ve konu düzenle</div>
       </div>`;
@@ -1620,6 +1638,17 @@ async function saveSoruKonu(fotoId, sonucId, konuId){
   }
   return true;
 }
+let editUnlocked=false, _editCb=null;
+function requireEdit(cb){
+  if(editUnlocked){ cb(); return; }
+  _editCb=cb; const g=$('#editGate'); g.classList.add('open'); g.setAttribute('aria-hidden','false');
+  const p=$('#eg_pin'); p.value=''; $('#eg_err').textContent='';
+  $('#eg_ok').onclick=_editTry; $('#eg_cancel').onclick=()=>{ _editCb=null; _closeGate(); };
+  p.onkeydown=e=>{ if(e.key==='Enter') _editTry(); };
+  setTimeout(()=>p.focus(),60);
+}
+function _editTry(){ const v=$('#eg_pin').value; if(v===EDIT_PIN){ editUnlocked=true; _closeGate(); const cb=_editCb; _editCb=null; if(cb)cb(); } else { $('#eg_err').textContent='Şifre yanlış.'; const p=$('#eg_pin'); p.value=''; p.focus(); } }
+function _closeGate(){ const g=$('#editGate'); g.classList.remove('open'); g.setAttribute('aria-hidden','true'); }
 function openSoruDuzenleById(id){ const r=(window._tekrarAll||[]).find(x=>x.id===id); if(!r){ toast('Soru bulunamadı'); return; } openSoruDuzenle(r); }
 function openSoruDuzenle(r){
   const src=bestFotoUrl(r);

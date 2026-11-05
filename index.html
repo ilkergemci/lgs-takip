@@ -146,10 +146,6 @@
   .ck-row .vbtn{flex:none;padding:7px 9px;font-size:13px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--brand);cursor:pointer}
   .soru-chip{padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--ink);font-size:13px;font-weight:650;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .soru-chip.has{border-color:var(--okg);color:var(--okg)}
-  .egate{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:20px}
-  .egate.open{display:flex}
-  .egate-box{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;width:100%;max-width:340px;box-shadow:0 12px 44px rgba(0,0,0,.35)}
-  .egate-box input{width:100%}
   .vek-ed{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;flex-direction:column}
   .vek-ed.open{display:flex}
   .vek-top{flex:none;background:var(--surface);border-bottom:1px solid var(--line);padding:7px 8px}
@@ -264,18 +260,6 @@
 <div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast"></div>
 
-<div class="egate" id="editGate" aria-hidden="true">
-  <div class="egate-box">
-    <h3 style="margin:0 0 4px">Düzenleme şifresi</h3>
-    <p class="hint" style="margin:0 0 12px">Bu bölüm veli içindir.</p>
-    <input type="password" id="eg_pin" inputmode="numeric" placeholder="Şifre" autocomplete="off">
-    <div id="eg_err" class="tiny" style="color:var(--bad);min-height:16px;margin:6px 2px"></div>
-    <div class="row" style="gap:8px">
-      <button class="btn" id="eg_cancel" style="flex:1">Vazgeç</button>
-      <button class="btn brand" id="eg_ok" style="flex:1">Gir</button>
-    </div>
-  </div>
-</div>
 
 <div class="vek-ed" id="vekEditor" aria-hidden="true">
   <div class="vek-top">
@@ -314,8 +298,8 @@ if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/su
 /* ---------- CONFIG ---------- */
 const SB_URL = "https://gplfwgtegmxdsemsiszf.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwbGZ3Z3RlZ214ZHNlbXNpc3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MzAxMTUsImV4cCI6MjEwOTEwNjExNX0.aa4slgeXqrFvK9zvo0NAECiHmUkg_fjlepCk00gdPaQ";
-const APP_PIN = "2026"; // İsterseniz bu satırı değiştirin
-const EDIT_PIN = "2468"; // Düzenleme (veli) şifresi — değiştirebilirsiniz
+const APP_PIN = "2026";  // Öğrenci girişi
+const VELI_PIN = "1907"; // Veli girişi (ödev silme, soru düzeltme vb. açılır)
 if(!window.supabase || !window.supabase.createClient){
   document.body.innerHTML='<div style="padding:46px 24px;max-width:420px;margin:40px auto;text-align:center;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#444">'
     +'<div style="font-size:40px">📶</div><h2 style="margin:12px 0 6px">Sayfa yüklenemedi</h2>'
@@ -329,8 +313,9 @@ const db = createClient(SB_URL, SB_KEY);
 /* ---------- STATE ---------- */
 const S = {
   dersler:[], konby:{}, konByDers:{}, matByDers:{}, matById:{},
-  view:"ozet"
+  view:"ozet", role:""
 };
+function isVeli(){ return S.role==='veli'; }
 const $ = (s,el=document)=>el.querySelector(s);
 const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
 const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -343,9 +328,11 @@ function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show')
 /* ---------- GATE ---------- */
 function openGate(){
   const g=$('#gate'), inp=$('#pinInput');
-  if(sessionStorage.getItem('lgs_ok')==='1'){ g.style.display='none'; startApp(); return; }
+  if(sessionStorage.getItem('lgs_ok')==='1'){ S.role=sessionStorage.getItem('lgs_role')||'ogrenci'; g.style.display='none'; startApp(); return; }
   g.style.display='grid';
-  const tryPin=()=>{ if(inp.value===APP_PIN){ sessionStorage.setItem('lgs_ok','1'); g.style.display='none'; startApp(); } else { $('#pinErr').style.visibility='visible'; inp.value=''; } };
+  const tryPin=()=>{ const v=inp.value; let role=null; if(v===APP_PIN)role='ogrenci'; else if(v===VELI_PIN)role='veli';
+    if(role){ S.role=role; sessionStorage.setItem('lgs_ok','1'); sessionStorage.setItem('lgs_role',role); g.style.display='none'; startApp(); }
+    else { $('#pinErr').style.visibility='visible'; inp.value=''; } };
   $('#pinBtn').onclick=tryPin;
   inp.onkeydown=e=>{ if(e.key==='Enter') tryPin(); $('#pinErr').style.visibility='hidden'; };
   inp.focus();
@@ -518,11 +505,9 @@ async function odevAc(id){
   // ödev detayı: sonuç/optik form akışına gir
   openResultSheet({fromOdev:data});
 }
-const SIL_PAROLA="1907";
 async function odevSil(id){
-  const pw=prompt('Ödev silme parolası:');
-  if(pw===null) return;                    // iptal
-  if(pw!==SIL_PAROLA){ toast('Parola yanlış'); return; }
+  if(!isVeli()){ toast('Bu işlem veli girişiyle yapılır'); return; }
+  if(!confirm('Bu ödev silinsin mi? (geri alınamaz)')) return;
   await db.from('odevler').update({durum:'yapildi'}).eq('id',id); // güvenli: DELETE engelli olabilir
   const {error}=await db.from('odevler').delete().eq('id',id);
   if(error){ toast('Silinemedi'); return; }
@@ -1174,9 +1159,9 @@ function openResultSheet({fromOdev}){
   sheet(`<h3>${esc(fromOdev.baslik||'Ödev')}</h3>
     <p class="hint">${esc(dersAd(fromOdev.ders_id))}${fromOdev.materyal?' · '+esc(fromOdev.materyal):''}${fromOdev.teslim_tarihi?' · teslim '+trDate(fromOdev.teslim_tarihi):''}</p>
     <div id="rsBody"><div class="sk" style="margin-top:12px"></div></div>
-    <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+    ${isVeli()?`<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
       <button class="btn block" style="color:var(--bad);border-color:var(--bad-soft)" onclick="odevSil(${fromOdev.id})">🗑 Ödevi sil</button>
-    </div>`);
+    </div>`:''}`);
   renderOdevTests(fromOdev);
 }
 
@@ -1220,7 +1205,7 @@ async function renderOdevTests(odev){
             ${q?`<div class="tiny">${q}</div>`:''}
           </div>
           ${st}
-          <button class="btn sm" title="Çıkar" onclick="unlinkOdevTest(${r.id},${odev.id})" style="padding:4px 9px;color:var(--bad)">✕</button>
+          ${isVeli()?`<button class="btn sm" title="Çıkar" onclick="unlinkOdevTest(${r.id},${odev.id})" style="padding:4px 9px;color:var(--bad)">✕</button>`:''}
         </div>
         ${sub}
       </div>`;
@@ -1228,13 +1213,14 @@ async function renderOdevTests(odev){
   } else {
     h+=`<p class="hint" style="margin:6px 0 10px">Henüz test eklenmedi. Öğretmenin verdiği sayfalar hangi test(ler)e denk geliyorsa aşağıdan seçip ekle.</p>`;
   }
-  h+=`<div class="card" style="padding:12px">
+  if(isVeli()) h+=`<div class="card" style="padding:12px">
       <div class="tiny" style="margin-bottom:8px;font-weight:700">Test ekle</div>
       <label class="fld" style="margin:0 0 8px"><span class="lab">Kitap</span><select id="ot_mat"></select></label>
       <label class="fld" style="margin:0 0 10px"><span class="lab">Test</span><select id="ot_test"><option value="">— Önce kitap seçin —</option></select></label>
       <button class="btn brand block" id="ot_add">+ Ekle</button>
     </div>`;
   body.innerHTML=h;
+  if(!isVeli()) return;
 
   // kitap seçenekleri: eşleşen en üstte, gerisi isme göre alfabetik
   const mats=[...Object.values(S.matById)].sort((a,b)=>{
@@ -1260,6 +1246,7 @@ async function renderOdevTests(odev){
 }
 
 async function unlinkOdevTest(linkId,odevId){
+  if(!isVeli()){ toast('Bu işlem veli girişiyle yapılır'); return; }
   if(!confirm('Bu test ödevden çıkarılsın mı?\n(Çözüm kayıtları silinmez, sadece bu ödevle bağlantısı kaldırılır.)')) return;
   const {error}=await db.from('odev_test').delete().eq('id',linkId);
   if(error){ toast('Çıkarılamadı'); return; }
@@ -1377,9 +1364,9 @@ async function openCozumDetay(sonucId,testId,odevId){
     <h2 class="sec" style="margin-top:16px">Cevap anahtarı <span style="text-transform:none;font-weight:600">(değiştirilemez)</span></h2>
     <p class="tiny" style="margin:0 4px 2px">Yeşil: doğru · Kırmızı: öğrencinin işareti (d: doğru cevap) · Gri: boş</p>
     <div class="ca-review">${grid}</div>
-    <h2 class="sec" style="margin-top:16px">Yanlış / boş soruların konusu</h2>
+    ${isVeli()?`<h2 class="sec" style="margin-top:16px">Yanlış / boş soruların konusu</h2>
     <p class="tiny" style="margin:0 4px 8px">Her sorunun hangi konudan olduğunu seç. Kaydedince analize işlenir.</p>
-    ${konuHtml}`;
+    ${konuHtml}`:''}`;
 
   const sv=$('#ck_save');
   if(sv) sv.onclick=()=>saveCozumKonu(sonucId,odevId,sv);
@@ -1610,10 +1597,10 @@ async function renderTekrar(){
             <div class="tiny">${esc(lbl)} · ${g.items.length} yanlış soru</div></div>
           <button class="btn sm brand" onclick='tekrarBasla(window._tekrarAll.filter(x=>x.materyal_test_id==${g.t.id}))'>Başla ›</button>
         </div>
-        <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:10px">
-          ${g.items.map(it=>`<button class="soru-chip ${it.konu_id?'has':''}" onclick="requireEdit(()=>openSoruDuzenleById(${it.id}))">Soru ${it.soru_no}${it.tip==='bos'?' · boş':''}${it.konu_id?' ●':''}</button>`).join('')}
+        ${isVeli()?`<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:10px">
+          ${g.items.map(it=>`<button class="soru-chip ${it.konu_id?'has':''}" onclick="openSoruDuzenleById(${it.id})">Soru ${it.soru_no}${it.tip==='bos'?' · boş':''}${it.konu_id?' ●':''}</button>`).join('')}
         </div>
-        <div class="tiny" style="margin-top:7px;color:var(--ink-3)">Başla: öğrenci çözer · Soruya dokun: çizim ve konu düzenle</div>
+        <div class="tiny" style="margin-top:7px;color:var(--ink-3)">Başla: öğrenci çözer · Soruya dokun: çizim ve konu düzenle</div>`:''}
       </div>`;
   });
   el.innerHTML=h;
@@ -1638,17 +1625,7 @@ async function saveSoruKonu(fotoId, sonucId, konuId){
   }
   return true;
 }
-let editUnlocked=false, _editCb=null;
-function requireEdit(cb){
-  if(editUnlocked){ cb(); return; }
-  _editCb=cb; const g=$('#editGate'); g.classList.add('open'); g.setAttribute('aria-hidden','false');
-  const p=$('#eg_pin'); p.value=''; $('#eg_err').textContent='';
-  $('#eg_ok').onclick=_editTry; $('#eg_cancel').onclick=()=>{ _editCb=null; _closeGate(); };
-  p.onkeydown=e=>{ if(e.key==='Enter') _editTry(); };
-  setTimeout(()=>p.focus(),60);
-}
-function _editTry(){ const v=$('#eg_pin').value; if(v===EDIT_PIN){ editUnlocked=true; _closeGate(); const cb=_editCb; _editCb=null; if(cb)cb(); } else { $('#eg_err').textContent='Şifre yanlış.'; const p=$('#eg_pin'); p.value=''; p.focus(); } }
-function _closeGate(){ const g=$('#editGate'); g.classList.remove('open'); g.setAttribute('aria-hidden','true'); }
+function requireEdit(cb){ if(isVeli()){ cb(); } else { toast('Bu bölüm veli içindir (1907 ile giriş)'); } }
 function openSoruDuzenleById(id){ const r=(window._tekrarAll||[]).find(x=>x.id===id); if(!r){ toast('Soru bulunamadı'); return; } openSoruDuzenle(r); }
 function openSoruDuzenle(r){
   const src=bestFotoUrl(r);

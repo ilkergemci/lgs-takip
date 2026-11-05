@@ -579,6 +579,7 @@ function renderSonuc(){
 }
 
 function renderKitapForm(){
+  solveReturn=null; // Sonuç sekmesinden kayıt özete döner
   const el=$('#sonucBody');
   const dersOpts=S.dersler.map(d=>`<option value="${d.id}">${esc(d.ad)}</option>`).join('');
   el.innerHTML=`<div class="card pad">
@@ -876,7 +877,8 @@ async function saveKitapResult(ctx){
   if(fotos.length){ const rows=fotos.map(f=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:f.soru_no,tip:f.tip,secilen:(ctx.answers&&ctx.answers[f.soru_no])||null,foto_path:f.foto_path,foto_url:f.foto_url,temiz_path:f.temiz_path,temiz_url:f.temiz_url})); const r=await db.from('yanlis_foto').insert(rows).select('id'); if(r.error)toast('Fotoğraf kaydı yazılamadı'); else vektorleBaslat(r.data); }
   $('#k_save').disabled=false;
   closeSheet(); toast(`Kaydedildi · net ${fnet(d,y)}`);
-  setView('ozet');
+  if(solveReturn && solveReturn.view==='kitap'){ kitapExpand=solveReturn.mid; solveReturn=null; setView('kitap'); }
+  else setView('ozet');
 }
 
 /* ----- DENEME ----- */
@@ -944,6 +946,7 @@ async function saveDeneme(){
 
 /* ----- KİTAPLAR ----- */
 let kitapDers='';
+let solveReturn=null, kitapExpand=null;
 async function renderKitap(){
   const el=$('#view-kitap');
   const dersOpts=`<option value="">Tüm dersler</option>`+S.dersler.map(d=>`<option value="${d.id}" ${kitapDers==d.id?'selected':''}>${esc(d.ad)}</option>`).join('');
@@ -977,6 +980,7 @@ async function renderKitap(){
   });
   body.innerHTML=html;
   body.querySelectorAll('.kitap-head').forEach(b=>b.onclick=()=>toggleKitapTests(b.dataset.m));
+  if(kitapExpand){ const m=kitapExpand; kitapExpand=null; const head=body.querySelector('.kitap-head[data-m="'+m+'"]'); if(head){ toggleKitapTests(m); head.scrollIntoView({block:'center'}); } }
 }
 async function toggleKitapTests(mid){
   const box=$('#ktt_'+mid);
@@ -996,9 +1000,10 @@ async function toggleKitapTests(mid){
     const dn=done[t.id]; const n=cnt[t.id]||0; const q=soruStr(t.soru_sayisi);
     return `<div class="kline" data-tid="${t.id}" style="cursor:pointer"><span class="kn" style="font-size:13px">${esc(testLabel(t))}${q?` <span style="color:var(--ink-3);font-weight:500">· ${q}</span>`:''} <span style="color:var(--ink-3)">›</span></span>${dn?`<span class="chip ok" style="font-size:11px">✓ net ${fnet(dn.d,dn.y)}${n>1?` · ${n}×`:''}</span>`:`<span class="chip" style="font-size:11px">yapılmadı</span>`}</div>`;
   }).join('')}</div>`;
-  box.querySelector('.konu-pick').onclick=e=>{ const row=e.target.closest('.kline'); if(!row)return; const t=ts.find(x=>x.id==row.dataset.tid); if(t) openKitapTest(t, mat.ders_id, mat.ad); };
+  box.querySelector('.konu-pick').onclick=e=>{ const row=e.target.closest('.kline'); if(!row)return; const t=ts.find(x=>x.id==row.dataset.tid); if(t) openKitapTest(t, mat.ders_id, mat.ad, mid); };
 }
-function openKitapTest(test, dersId, matName){
+function openKitapTest(test, dersId, matName, mid){
+  solveReturn={view:'kitap', mid: mid||test.materyal_id||null};
   const sd=$('#view-sonuc #k_dyn'); if(sd) sd.innerHTML=''; // Sonuç sekmesiyle ID çakışmasını önle
   sheet(`<h3>${esc(testLabel(test))}</h3><p class="hint">${esc(matName||'')}</p><div id="kt_dyn"></div>`);
   buildKitapEntry(test, dersId, $('#kt_dyn'));

@@ -1773,9 +1773,22 @@ async function startApp(){
 openGate();
 </script>
 <script>
-/* PWA: service worker kaydı */
+/* PWA: service worker kaydı + otomatik güncelleme */
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      const check = () => { try { reg.update(); } catch (_) {} };
+      // uygulama öne gelince yeni sürümü kontrol et
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+      // yeni SW etkinleşince (güncelleme) sayfayı bir kez yenile → taze kod
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing; if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'activated' && navigator.serviceWorker.controller) window.location.reload();
+        });
+      });
+    }).catch(() => {});
+  });
 }
 </script>
 </body>

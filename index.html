@@ -303,6 +303,7 @@ const SB_URL = "https://gplfwgtegmxdsemsiszf.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwbGZ3Z3RlZ214ZHNlbXNpc3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MzAxMTUsImV4cCI6MjEwOTEwNjExNX0.aa4slgeXqrFvK9zvo0NAECiHmUkg_fjlepCk00gdPaQ";
 const APP_PIN = "2026";  // Öğrenci girişi
 const VELI_PIN = "1907"; // Veli girişi (ödev silme, soru düzeltme vb. açılır)
+const VAPID_PUBLIC = "BBuAEb-j33IKPFByEfbKxuOKlsAL3crdDUOVt9TwaGenOAnIUaUt7h4eORk8mgd2Gxpqz2Y-hiB92eN5k0uxHGg";
 if(!window.supabase || !window.supabase.createClient){
   document.body.innerHTML='<div style="padding:46px 24px;max-width:420px;margin:40px auto;text-align:center;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#444">'
     +'<div style="font-size:40px">📶</div><h2 style="margin:12px 0 6px">Sayfa yüklenemedi</h2>'
@@ -319,6 +320,27 @@ const S = {
   view:"ozet", role:""
 };
 function isVeli(){ return S.role==='veli'; }
+/* ---- Bildirimler (web push) ---- */
+function _u8(b64){ const pad='='.repeat((4-b64.length%4)%4); const s=(b64+pad).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(s); const a=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)a[i]=raw.charCodeAt(i); return a; }
+function bildirimDurum(){ try{ return ('Notification'in window)? Notification.permission : 'yok'; }catch(_){ return 'yok'; } }
+async function bildirimAc(){
+  if(!('serviceWorker'in navigator) || !('PushManager'in window) || !('Notification'in window)){ toast('Bu cihaz/ tarayıcı bildirim desteklemiyor'); return; }
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){ toast('Bildirim izni verilmedi'); return; }
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:_u8(VAPID_PUBLIC)});
+    const j=sub.toJSON();
+    const {error}=await db.from('push_aboneleri').upsert({endpoint:sub.endpoint, p256dh:j.keys.p256dh, auth:j.keys.auth, ua:navigator.userAgent},{onConflict:'endpoint'});
+    if(error){ toast('Abonelik kaydedilemedi'); return; }
+    toast('Bildirimler açıldı ✓'); if(S.view==='ozet') renderOzet();
+  }catch(e){ toast('Bildirim açılamadı: '+(e.message||e)); }
+}
+async function bildirimTest(){
+  try{ const {error}=await db.functions.invoke('push-gonder',{body:{mesaj:'Test bildirimi ✓ çalışıyor',baslik:'LGS Takip'}});
+    toast(error?'Gönderilemedi':'Test gönderildi — birazdan gelir'); }catch(e){ toast('Gönderilemedi'); }
+}
 const $ = (s,el=document)=>el.querySelector(s);
 const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
 const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -429,6 +451,14 @@ async function renderOzet(){
       <div class="stat" role="button" tabindex="0" style="cursor:pointer" onclick="goOdev('geciken')"><div class="n" style="color:var(--${gecikti.length?'bad':'ink'})">${gecikti.length}</div><div class="l">Geciken ›</div></div>
       <div class="stat" role="button" tabindex="0" style="cursor:pointer" onclick="goOdev('yapildi')"><div class="n">${buHafta}</div><div class="l">Bu hafta çözülen ›</div></div>
     </div>
+
+    ${('Notification'in window)?`<div class="card pad" style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="min-width:0"><div style="font-weight:650;font-size:13.5px">🔔 Bildirimler</div><div class="tiny">${bildirimDurum()==='granted'?'Açık · her akşam 19:00 hatırlatma':'Her akşam 19:00 ödev hatırlatması'}</div></div>
+      <div class="row" style="gap:6px;flex:none">
+        ${bildirimDurum()==='granted'?`<button class="btn sm" onclick="bildirimTest()">Test</button>`:''}
+        <button class="btn sm brand" onclick="bildirimAc()">${bildirimDurum()==='granted'?'Yenile':'Aç'}</button>
+      </div>
+    </div>`:''}
 
     <h2 class="sec">En zayıf konular</h2>
     <div class="card pad" ${weak.length?'role="button" tabindex="0" style="cursor:pointer" onclick="setView(\'analiz\')"':''}>

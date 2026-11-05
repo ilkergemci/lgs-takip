@@ -1,5 +1,5 @@
 /* LGS Takip · Service Worker */
-const CACHE = 'lgs-takip-v2';
+const CACHE = 'lgs-takip-v3';
 const SHELL = ['./', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
@@ -35,4 +35,27 @@ self.addEventListener('fetch', e => {
   }
   // Statik dosyalar (ikon/manifest) → önce önbellek
   e.respondWith(caches.match(req).then(c => c || fetch(req)));
+});
+
+/* ---- Web push bildirimleri ---- */
+self.addEventListener('push', e => {
+  let d = { title: 'LGS Takip', body: '' };
+  try { d = Object.assign(d, e.data.json()); } catch (_) { if (e.data) d.body = e.data.text(); }
+  e.waitUntil(self.registration.showNotification(d.title, {
+    body: d.body,
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    data: { url: d.url || './' },
+    tag: 'lgs-takip'
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(ws => {
+      for (const w of ws) { if ('focus' in w) return w.focus(); }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
 });

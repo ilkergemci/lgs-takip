@@ -155,10 +155,15 @@
   .vek-tools .grow{flex:1}
   .vek-tools .save{background:var(--brand);color:var(--brand-ink);border-color:transparent;font-weight:700}
   .vek-ttl{font-size:12px;color:var(--ink-3);padding:2px 2px 6px;font-weight:650}
-  .vek-ref{flex:none;max-height:32vh;overflow:auto;background:#111;text-align:center;border-bottom:1px solid var(--line)}
-  .vek-ref img{max-width:100%;max-height:32vh;object-fit:contain}
-  .vek-stage{flex:1;overflow:auto;background:var(--surface-2)}
-  .vek-stage .canvas-container{margin:10px auto;box-shadow:0 1px 10px rgba(0,0,0,.15)}
+  .vek-main{flex:1;display:flex;min-height:0}
+  .vek-stage{flex:1;min-width:0;overflow:hidden;background:var(--surface-2);position:relative}
+  .vek-stage .canvas-container{box-shadow:none}
+  .vek-ref{display:none;position:relative;overflow:hidden;background:#111;touch-action:none}
+  .vek-ref.show{display:block}
+  .vek-ref img{position:absolute;top:0;left:0;transform-origin:0 0;user-select:none;-webkit-user-drag:none;max-width:none;cursor:grab}
+  .vek-ref .refhint{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:3px 7px;border-radius:7px;pointer-events:none}
+  @media(min-width:820px){ .vek-ref.show{flex:0 0 46%;max-width:46%;border-left:1px solid var(--line)} }
+  @media(max-width:819px){ .vek-main{flex-direction:column} .vek-ref.show{flex:0 0 42vh;border-top:1px solid var(--line)} }
   .tkimg-wrap{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;overflow:auto;max-height:46vh;display:flex;justify-content:center}
   .tkimg{max-width:100%;height:auto;display:block}
   .tk-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -277,8 +282,10 @@
       <button id="vekClose" title="Kapat">✕</button>
     </div>
   </div>
-  <div class="vek-ref" id="vekRef" style="display:none"></div>
-  <div class="vek-stage" id="vekStage"><canvas id="vekCanvas"></canvas></div>
+  <div class="vek-main">
+    <div class="vek-stage" id="vekStage"><canvas id="vekCanvas"></canvas></div>
+    <div class="vek-ref" id="vekRef"></div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"></script>
@@ -1398,7 +1405,8 @@ async function openVektorEditor(fotoId,onClose){
   if(error||!row){ toast('Soru bulunamadı'); return; }
   const ed=$('#vekEditor'); ed.classList.add('open'); ed.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
   $('#vekTitle').textContent=`Soru ${row.soru_no} · ${row.tip==='bos'?'boş':'yanlış'} — vektör düzenle`;
-  const ref=$('#vekRef'); ref.style.display='none'; ref.innerHTML = (row.foto_url||row.temiz_url)?`<img src="${esc(row.foto_url||row.temiz_url)}" alt="orijinal">`:'';
+  const ref=$('#vekRef'); ref.classList.remove('show'); const refSrc=row.foto_url||row.temiz_url;
+  ref.innerHTML = refSrc?`<img src="${esc(refSrc)}" alt="orijinal"><span class="refhint">Tekerlek: yakınlaştır · sürükle: kaydır</span>`:'';
   let W=900,H=600, svg=null;
   if(row.vektor_url){ try{ svg=await fetch(row.vektor_url.split('?')[0]+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.text()); }catch(_){ } }
   if(svg){ const vb=(svg.match(/viewBox="([-\d.\s]+)"/)||[])[1]; if(vb){ const p=vb.trim().split(/\s+/).map(Number); if(p.length===4&&p[2]>0&&p[3]>0){ W=p[2]; H=p[3]; } } }
@@ -1425,12 +1433,18 @@ async function openVektorEditor(fotoId,onClose){
   wireVekTools();
 }
 function vekFit(){
-  if(!VEK) return; const stage=$('#vekStage'); const sw=Math.max(240,stage.clientWidth); const zoom=sw/VEK.W;
-  VEK.canvas.setZoom(zoom); VEK.canvas.setWidth(VEK.W*zoom); VEK.canvas.setHeight(VEK.H*zoom); VEK.canvas.requestRenderAll();
+  if(!VEK) return; const stage=$('#vekStage'); const sw=Math.max(200,stage.clientWidth), sh=Math.max(200,stage.clientHeight);
+  const c=VEK.canvas; c.setWidth(sw); c.setHeight(sh);
+  const z=Math.min(sw/VEK.W, sh/VEK.H)*0.96;
+  c.setViewportTransform([z,0,0,z,(sw-VEK.W*z)/2,(sh-VEK.H*z)/2]); c.requestRenderAll();
 }
 function bindVekCanvas(c){
-  let draft=null, start=null;
+  let draft=null, start=null, panning=false, lpx=0, lpy=0;
+  c.on('mouse:wheel',opt=>{ const e=opt.e; e.preventDefault(); e.stopPropagation();
+    let z=c.getZoom()*Math.pow(0.999,e.deltaY); z=Math.min(10,Math.max(0.1,z));
+    c.zoomToPoint({x:e.offsetX,y:e.offsetY}, z); });
   c.on('mouse:down',opt=>{
+    if(opt.e.button===1){ panning=true; lpx=opt.e.clientX; lpy=opt.e.clientY; c.setCursor('grabbing'); opt.e.preventDefault(); return; }
     if(VEK.mode==='select'||VEK.mode==='draw') return;
     const p=c.getPointer(opt.e); start=p;
     if(VEK.mode==='text'){
@@ -1443,13 +1457,14 @@ function bindVekCanvas(c){
     if(draft) c.add(draft);
   });
   c.on('mouse:move',opt=>{
+    if(panning){ const e=opt.e; const vpt=c.viewportTransform; vpt[4]+=e.clientX-lpx; vpt[5]+=e.clientY-lpy; lpx=e.clientX; lpy=e.clientY; c.setViewportTransform(vpt); return; }
     if(!draft||!start) return; const p=c.getPointer(opt.e);
     if(VEK.mode==='rect') draft.set({left:Math.min(p.x,start.x),top:Math.min(p.y,start.y),width:Math.abs(p.x-start.x),height:Math.abs(p.y-start.y)});
     else if(VEK.mode==='ellipse') draft.set({left:Math.min(p.x,start.x),top:Math.min(p.y,start.y),rx:Math.abs(p.x-start.x)/2,ry:Math.abs(p.y-start.y)/2});
     else if(VEK.mode==='line') draft.set({x2:p.x,y2:p.y});
     c.requestRenderAll();
   });
-  c.on('mouse:up',()=>{ if(draft){ draft.setCoords(); draft=null; start=null; vekSetMode('select'); vekPush(); } });
+  c.on('mouse:up',()=>{ if(panning){ panning=false; c.setCursor('default'); return; } if(draft){ draft.setCoords(); draft=null; start=null; vekSetMode('select'); vekPush(); } });
   c.on('path:created',()=>vekPush());
   c.on('object:modified',()=>vekPush());
 }
@@ -1475,7 +1490,29 @@ function vekPaste(){ if(!VEK||!VEK._clip){ toast('Önce kopyala (Ctrl+C)'); retu
 function vekSetColor(v){ if(!VEK) return; VEK.color=v; const c=VEK.canvas; const o=c.getActiveObject(); if(o){ if(o.type==='i-text'||o.type==='text')o.set('fill',v); else o.set('stroke',v); c.requestRenderAll(); vekPush(); } if(c.freeDrawingBrush)c.freeDrawingBrush.color=v; }
 function vekSetWidth(w){ if(!VEK) return; VEK.width=+w; const c=VEK.canvas; const o=c.getActiveObject(); if(o&&o.type!=='i-text'&&o.type!=='text'&&o.strokeWidth!=null){ o.set('strokeWidth',+w); c.requestRenderAll(); vekPush(); } if(c.freeDrawingBrush)c.freeDrawingBrush.width=+w; }
 function vekSetFont(s){ if(!VEK) return; VEK.font=+s; const o=VEK.canvas.getActiveObject(); if(o&&(o.type==='i-text'||o.type==='text')){ o.set('fontSize',+s); VEK.canvas.requestRenderAll(); vekPush(); } }
-function vekToggleRef(){ const r=$('#vekRef'); if(!r.innerHTML){ toast('Orijinal fotoğraf yok'); return; } r.style.display=(r.style.display==='none'?'block':'none'); }
+function vekToggleRef(){ const r=$('#vekRef'); if(!r.innerHTML){ toast('Orijinal fotoğraf yok'); return; }
+  const show=!r.classList.contains('show'); r.classList.toggle('show',show);
+  requestAnimationFrame(()=>{ vekFit(); if(show) setupRefZoom(); });
+}
+function setupRefZoom(){
+  const wrap=$('#vekRef'); const img=wrap.querySelector('img'); if(!img) return;
+  let sc=1,tx=0,ty=0,pan=false,lx=0,ly=0;
+  const apply=()=>{ img.style.transform=`translate(${tx.toFixed(1)}px,${ty.toFixed(1)}px) scale(${sc})`; };
+  const fit=()=>{ const ww=wrap.clientWidth||300, wh=wrap.clientHeight||300, nw=img.naturalWidth||ww, nh=img.naturalHeight||wh;
+    sc=Math.max(0.05, Math.min(ww/nw, wh/nh)); tx=(ww-nw*sc)/2; ty=(wh-nh*sc)/2; apply(); };
+  if(img.complete && img.naturalWidth) fit(); else img.onload=fit;
+  // önceki dinleyicileri temizle
+  if(wrap._wheel) wrap.removeEventListener('wheel',wrap._wheel);
+  if(wrap._mm) window.removeEventListener('mousemove',wrap._mm);
+  if(wrap._mu) window.removeEventListener('mouseup',wrap._mu);
+  wrap._wheel=e=>{ e.preventDefault(); const rect=wrap.getBoundingClientRect(); const px=e.clientX-rect.left, py=e.clientY-rect.top;
+    const cx=(px-tx)/sc, cy=(py-ty)/sc; sc=Math.min(12,Math.max(0.05, sc*Math.pow(0.999,e.deltaY))); tx=px-cx*sc; ty=py-cy*sc; apply(); };
+  wrap.addEventListener('wheel',wrap._wheel,{passive:false});
+  wrap.onmousedown=e=>{ pan=true; lx=e.clientX; ly=e.clientY; img.style.cursor='grabbing'; e.preventDefault(); };
+  wrap._mm=e=>{ if(!pan)return; tx+=e.clientX-lx; ty+=e.clientY-ly; lx=e.clientX; ly=e.clientY; apply(); };
+  wrap._mu=()=>{ if(pan){ pan=false; img.style.cursor='grab'; } };
+  window.addEventListener('mousemove',wrap._mm); window.addEventListener('mouseup',wrap._mu);
+}
 async function saveVektorEdit(){
   if(!VEK) return; const c=VEK.canvas, row=VEK.row; const btn=$('#vekSave');
   let svg; try{ svg=c.toSVG({width:VEK.W,height:VEK.H,viewBox:{x:0,y:0,width:VEK.W,height:VEK.H}}); }catch(e){ toast('SVG üretilemedi'); return; }
@@ -1489,7 +1526,9 @@ async function saveVektorEdit(){
   if(r.error){ toast('DB güncellenemedi'); return; }
   toast('Vektör kaydedildi ✓ onaylı'); closeVektorEditor();
 }
-function closeVektorEditor(){ const cb=VEK&&VEK._onClose; const ed=$('#vekEditor'); ed.classList.remove('open'); ed.setAttribute('aria-hidden','true'); document.body.style.overflow=''; if(VEK&&VEK.canvas){ try{VEK.canvas.dispose();}catch(_){ } } VEK=null; if(cb){ try{cb();}catch(_){ } } }
+function closeVektorEditor(){ const cb=VEK&&VEK._onClose; const ed=$('#vekEditor'); ed.classList.remove('open'); ed.setAttribute('aria-hidden','true'); document.body.style.overflow='';
+  const wrap=$('#vekRef'); if(wrap){ if(wrap._mm)window.removeEventListener('mousemove',wrap._mm); if(wrap._mu)window.removeEventListener('mouseup',wrap._mu); if(wrap._wheel)wrap.removeEventListener('wheel',wrap._wheel); wrap._mm=wrap._mu=wrap._wheel=null; wrap.classList.remove('show'); }
+  if(VEK&&VEK.canvas){ try{VEK.canvas.dispose();}catch(_){ } } VEK=null; if(cb){ try{cb();}catch(_){ } } }
 function wireVekTools(){
   $$('#vekTools [data-mode]').forEach(b=> b.onclick=()=>vekSetMode(b.dataset.mode));
   const col=$('#vekColor'); col.value=VEK.color; col.oninput=e=>vekSetColor(e.target.value);

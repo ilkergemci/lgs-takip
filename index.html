@@ -164,6 +164,7 @@
   .vek-ref.show{display:block}
   .vek-ref img{position:absolute;top:0;left:0;transform-origin:0 0;user-select:none;-webkit-user-drag:none;max-width:none;cursor:grab}
   .vek-ref .refhint{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:3px 7px;border-radius:7px;pointer-events:none}
+  .vek-ref .ref-rot{position:absolute;top:8px;right:8px;z-index:3;width:36px;height:36px;border:none;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
   @media(min-width:820px){ .vek-ref.show{flex:0 0 46%;max-width:46%;border-left:1px solid var(--line)} }
   @media(max-width:819px){ .vek-main{flex-direction:column} .vek-ref.show{flex:0 0 42vh;border-top:1px solid var(--line)} }
   .tkimg-wrap{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;overflow:auto;max-height:46vh;display:flex;justify-content:center}
@@ -1415,7 +1416,7 @@ async function openVektorEditor(fotoId,onClose){
   const ed=$('#vekEditor'); ed.classList.add('open'); ed.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
   $('#vekTitle').textContent=`Soru ${row.soru_no} · ${row.tip==='bos'?'boş':'yanlış'} — vektör düzenle`;
   const ref=$('#vekRef'); ref.classList.remove('show'); const refSrc=row.foto_url||row.temiz_url;
-  ref.innerHTML = refSrc?`<img src="${esc(refSrc)}" alt="orijinal"><span class="refhint">Tekerlek: yakınlaştır · sürükle: kaydır</span>`:'';
+  ref.innerHTML = refSrc?`<img src="${esc(refSrc)}" alt="orijinal"><button class="ref-rot" id="vekRot" title="Orijinali döndür">⟳</button><span class="refhint">Tekerlek: yakınlaştır · sürükle: kaydır · ⟳ döndür</span>`:'';
   let W=900,H=600, svg=null;
   if(row.vektor_url){ try{ svg=await fetch(row.vektor_url.split('?')[0]+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.text()); }catch(_){ } }
   if(svg){ const vb=(svg.match(/viewBox="([-\d.\s]+)"/)||[])[1]; if(vb){ const p=vb.trim().split(/\s+/).map(Number); if(p.length===4&&p[2]>0&&p[3]>0){ W=p[2]; H=p[3]; } } }
@@ -1514,10 +1515,14 @@ function vekToggleRef(){ const r=$('#vekRef'); if(!r.innerHTML){ toast('Orijinal
 }
 function setupRefZoom(){
   const wrap=$('#vekRef'); const img=wrap.querySelector('img'); if(!img) return;
-  let sc=1,tx=0,ty=0,pan=false,lx=0,ly=0;
-  const apply=()=>{ img.style.transform=`translate(${tx.toFixed(1)}px,${ty.toFixed(1)}px) scale(${sc})`; };
-  const fit=()=>{ const ww=wrap.clientWidth||300, wh=wrap.clientHeight||300, nw=img.naturalWidth||ww, nh=img.naturalHeight||wh;
-    sc=Math.max(0.05, Math.min(ww/nw, wh/nh)); tx=(ww-nw*sc)/2; ty=(wh-nh*sc)/2; apply(); };
+  let sc=1,tx=0,ty=0,rot=0,pan=false,lx=0,ly=0;
+  const dims=()=>{ const nw=img.naturalWidth||wrap.clientWidth||300, nh=img.naturalHeight||wrap.clientHeight||300;
+    return (rot%180)? {nw,nh,enw:nh,enh:nw} : {nw,nh,enw:nw,enh:nh}; };
+  const apply=()=>{ const {nw,nh}=dims(); let off='0px,0px';
+    if(rot===90) off=`${nh}px,0px`; else if(rot===180) off=`${nw}px,${nh}px`; else if(rot===270) off=`0px,${nw}px`;
+    img.style.transform=`translate(${tx.toFixed(1)}px,${ty.toFixed(1)}px) scale(${sc}) translate(${off}) rotate(${rot}deg)`; };
+  const fit=()=>{ const ww=wrap.clientWidth||300, wh=wrap.clientHeight||300; const {enw,enh}=dims();
+    sc=Math.max(0.05, Math.min(ww/enw, wh/enh)); tx=(ww-enw*sc)/2; ty=(wh-enh*sc)/2; apply(); };
   if(img.complete && img.naturalWidth) fit(); else img.onload=fit;
   // önceki dinleyicileri temizle
   if(wrap._wheel) wrap.removeEventListener('wheel',wrap._wheel);
@@ -1526,10 +1531,11 @@ function setupRefZoom(){
   wrap._wheel=e=>{ e.preventDefault(); const rect=wrap.getBoundingClientRect(); const px=e.clientX-rect.left, py=e.clientY-rect.top;
     const cx=(px-tx)/sc, cy=(py-ty)/sc; sc=Math.min(12,Math.max(0.05, sc*Math.pow(0.999,e.deltaY))); tx=px-cx*sc; ty=py-cy*sc; apply(); };
   wrap.addEventListener('wheel',wrap._wheel,{passive:false});
-  wrap.onmousedown=e=>{ pan=true; lx=e.clientX; ly=e.clientY; img.style.cursor='grabbing'; e.preventDefault(); };
+  wrap.onmousedown=e=>{ if(e.target.closest('.ref-rot')) return; pan=true; lx=e.clientX; ly=e.clientY; img.style.cursor='grabbing'; e.preventDefault(); };
   wrap._mm=e=>{ if(!pan)return; tx+=e.clientX-lx; ty+=e.clientY-ly; lx=e.clientX; ly=e.clientY; apply(); };
   wrap._mu=()=>{ if(pan){ pan=false; img.style.cursor='grab'; } };
   window.addEventListener('mousemove',wrap._mm); window.addEventListener('mouseup',wrap._mu);
+  const rb=$('#vekRot'); if(rb) rb.onclick=(e)=>{ e.stopPropagation(); rot=(rot+90)%360; fit(); };
 }
 async function saveVektorEdit(){
   if(!VEK) return; const c=VEK.canvas, row=VEK.row; const btn=$('#vekSave');

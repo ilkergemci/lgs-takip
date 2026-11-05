@@ -853,6 +853,21 @@ function buildKonuBox(ctx){
   box.querySelector('.konu-pick').onclick=e=>{ const btn=e.target.closest('button'); if(!btn)return; const id=btn.dataset.k; const cur=ctx.manualKonu[id]||0; const nx=Math.max(0,cur+ (btn.dataset.s==='1'?1:-1)); if(nx===0)delete ctx.manualKonu[id]; else ctx.manualKonu[id]=nx; $('#ks_'+id).textContent=nx; };
 }
 
+async function syncOdevDurum(testId){
+  if(!testId) return;
+  try{
+    const {data:links}=await db.from('odev_test').select('odev_id').eq('materyal_test_id',testId);
+    const odevIds=[...new Set((links||[]).map(l=>l.odev_id).filter(Boolean))];
+    for(const oid of odevIds){
+      const {data:ots}=await db.from('odev_test').select('materyal_test_id').eq('odev_id',oid);
+      const tids=(ots||[]).map(t=>t.materyal_test_id);
+      if(!tids.length) continue;
+      const {data:sols}=await db.from('sonuclar').select('materyal_test_id').in('materyal_test_id',tids);
+      const solved=new Set((sols||[]).map(s=>s.materyal_test_id));
+      if(tids.every(t=>solved.has(t))) await db.from('odevler').update({durum:'yapildi'}).eq('id',oid);
+    }
+  }catch(_){ }
+}
 async function saveKitapResult(ctx){
   let d,y,b;
   if(ctx.hasCA){ ({d,y,b}=ctx._dyb||{d:0,y:0,b:0}); if(d+y+b===0){toast('Şıkları işaretle');return;}
@@ -875,6 +890,7 @@ async function saveKitapResult(ctx){
   const yk=Object.entries(konu).map(([konu_id,adet])=>({sonuc_id:sRes.data.id,konu_id:+konu_id,adet}));
   if(yk.length){ const r=await db.from('yanlis_konular').insert(yk); if(r.error)toast('Konular kaydedilemedi'); }
   if(fotos.length){ const rows=fotos.map(f=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:f.soru_no,tip:f.tip,secilen:(ctx.answers&&ctx.answers[f.soru_no])||null,foto_path:f.foto_path,foto_url:f.foto_url,temiz_path:f.temiz_path,temiz_url:f.temiz_url})); const r=await db.from('yanlis_foto').insert(rows).select('id'); if(r.error)toast('Fotoğraf kaydı yazılamadı'); else vektorleBaslat(r.data); }
+  await syncOdevDurum(ctx.test.id); // bu testi içeren ödevlerin tümü çözüldüyse yapıldı işaretle
   $('#k_save').disabled=false;
   closeSheet(); toast(`Kaydedildi · net ${fnet(d,y)}`);
   if(solveReturn && solveReturn.view==='kitap'){ kitapExpand=solveReturn.mid; solveReturn=null; setView('kitap'); }
@@ -1295,11 +1311,12 @@ async function saveFromOdev(ctx){
   const tids=(links||[]).map(l=>l.materyal_test_id);
   let allDone=tids.length>0;
   if(tids.length){
-    const {data:res}=await db.from('sonuclar').select('materyal_test_id').eq('odev_id',ctx._odev.id).in('materyal_test_id',tids);
+    const {data:res}=await db.from('sonuclar').select('materyal_test_id').in('materyal_test_id',tids);
     const solved=new Set((res||[]).map(r=>r.materyal_test_id));
     allDone=tids.every(t=>solved.has(t));
   }
   if(allDone) await db.from('odevler').update({durum:'yapildi'}).eq('id',ctx._odev.id);
+  await syncOdevDurum(ctx.test.id); // aynı testi içeren diğer ödevleri de kapsa
   closeSheet(); toast(allDone?`Kaydedildi · ödev yapıldı · net ${fnet(d,y)}`:`Kaydedildi · net ${fnet(d,y)}`); renderOdev();
 }
 

@@ -25,7 +25,7 @@ self.addEventListener('fetch', e => {
   // Sayfa gezinmesi → önce ağ, çevrimdışıysa önbellekten kabuk
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).then(r => {
+      fetch(req.url, { cache: 'no-store' }).then(r => {
         const copy = r.clone();
         caches.open(CACHE).then(c => c.put('./index.html', copy)).catch(() => {});
         return r;

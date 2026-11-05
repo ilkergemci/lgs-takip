@@ -1632,8 +1632,7 @@ function openSoruDuzenle(r){
   const ks=S.konByDers[(r._mat&&r._mat.ders_id)]||[];
   const konuOpts=`<option value="">— konu seç —</option>`+ks.map(k=>`<option value="${k.id}" ${String(r.konu_id)===String(k.id)?'selected':''}>${esc(k.ad)}</option>`).join('');
   const t=r._t||{}; const lbl=testLabel({unite:t.unite,bolum:t.bolum,test_no:t.test_no,id:t.id});
-  sheet(`<button class="btn sm" id="sd_back" style="margin-bottom:8px">‹ Geri</button>
-    <h3>Soru ${r.soru_no} · ${r.tip==='bos'?'boş':'yanlış'}</h3>
+  sheet(`<h3 style="margin-top:2px">Soru ${r.soru_no} · ${r.tip==='bos'?'boş':'yanlış'}</h3>
     <p class="hint">${esc((r._mat&&r._mat.ad)||'')} · ${esc(lbl)}</p>
     <div class="tkimg-wrap" id="sd_imgwrap" title="Çizimi düzenlemek için dokun" style="cursor:pointer"><img class="tkimg" id="sd_img" src="${esc(src)}" alt="soru"></div>
     <div class="row" style="justify-content:space-between;margin:8px 2px 2px;gap:6px;flex-wrap:wrap">
@@ -1645,9 +1644,9 @@ function openSoruDuzenle(r){
       <span class="tiny" style="white-space:nowrap;font-weight:650">Hangi konudan?</span>
       <select id="sd_konu" class="konu-sel" style="flex:1;max-width:none">${ks.length?konuOpts:'<option value="">(bu ders için konu yok)</option>'}</select>
     </div>
-    <p class="tiny" style="margin:6px 2px 0;color:var(--ink-3)">Seçince ödevdeki yanlış konu olarak işaretlenir (Analiz'e işler).</p>`);
-  $('#sd_back').onclick=()=>{ closeSheet(); setView('tekrar'); };
-  let showOrig=false;
+    <button class="btn brand block" id="sd_save" style="margin-top:16px">Kaydet</button>
+    <p class="tiny" style="margin:8px 2px 0;color:var(--ink-3);text-align:center">Kaydetmeden çıkmak için sağ üstteki ✕</p>`);
+  let showOrig=false, pendingKonu=(r.konu_id!=null?r.konu_id:null);
   $('#sd_orig').onclick=()=>{ showOrig=!showOrig; $('#sd_img').src= showOrig?(r.foto_url||src):bestFotoUrl(r); $('#sd_orig').textContent= showOrig?'Temiz/vektör hali':'Orijinali gör'; };
   const openEdit=()=>openVektorEditor(r.id, async()=>{
     const {data}=await db.from('yanlis_foto').select('vektor_url,vektor_durum,temiz_url,foto_url').eq('id',r.id).single();
@@ -1655,7 +1654,13 @@ function openSoruDuzenle(r){
   });
   $('#sd_edit').onclick=openEdit; $('#sd_imgwrap').onclick=openEdit;
   const ksel=$('#sd_konu');
-  if(ksel && ks.length) ksel.onchange=async()=>{ const v=ksel.value?+ksel.value:null; ksel.disabled=true; const ok=await saveSoruKonu(r.id,r.sonuc_id,v); ksel.disabled=false; if(ok){ r.konu_id=v; toast(v?'Konu işaretlendi ✓':'Konu kaldırıldı'); } };
+  if(ksel && ks.length) ksel.onchange=()=>{ pendingKonu = ksel.value?+ksel.value:null; };
+  $('#sd_save').onclick=async()=>{
+    const btn=$('#sd_save'); btn.disabled=true; btn.textContent='Kaydediliyor…';
+    const ok=await saveSoruKonu(r.id, r.sonuc_id, pendingKonu);
+    btn.disabled=false; btn.textContent='Kaydet';
+    if(ok){ r.konu_id=pendingKonu; toast('Kaydedildi ✓'); closeSheet(); setView('tekrar'); }
+  };
 }
 function tekrarGoster(st){
   const r=st.list[st.i];

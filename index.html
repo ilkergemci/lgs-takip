@@ -1219,16 +1219,15 @@ async function renderOdevTests(odev){
       </div>`;
     }).join('')+`</div>`;
   } else {
-    h+=`<p class="hint" style="margin:6px 0 10px">Henüz test eklenmedi.${isVeli()?' Öğretmenin verdiği sayfalar hangi test(ler)e denk geliyorsa aşağıdan seçip ekle.':' Test eklemek için veli girişi (1907) gerekir.'}</p>`;
+    h+=`<p class="hint" style="margin:6px 0 10px">Henüz test eklenmedi. Öğretmenin verdiği sayfalar hangi test(ler)e denk geliyorsa aşağıdan seçip ekle.</p>`;
   }
-  if(isVeli()) h+=`<div class="card" style="padding:12px">
+  h+=`<div class="card" style="padding:12px">
       <div class="tiny" style="margin-bottom:8px;font-weight:700">Test ekle</div>
       <label class="fld" style="margin:0 0 8px"><span class="lab">Kitap</span><select id="ot_mat"></select></label>
       <label class="fld" style="margin:0 0 10px"><span class="lab">Test</span><select id="ot_test"><option value="">— Önce kitap seçin —</option></select></label>
       <button class="btn brand block" id="ot_add">+ Ekle</button>
     </div>`;
   body.innerHTML=h;
-  if(!isVeli()) return;
 
   // kitap seçenekleri: eşleşen en üstte, gerisi isme göre alfabetik
   const mats=[...Object.values(S.matById)].sort((a,b)=>{

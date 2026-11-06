@@ -493,12 +493,13 @@ async function renderOzet(){
 let odevFilter='bekliyor';
 function goOdev(f){ odevFilter=f||'bekliyor'; setView('odev'); }
 async function renderOdev(){
+  if(odevFilter==='testsiz' && !isVeli()) odevFilter='bekliyor';
   const el=$('#view-odev');
   el.innerHTML=`<div style="margin-top:16px" class="seg" id="ofSeg">
       <button data-f="geciken" class="${odevFilter==='geciken'?'on':''}">Geciken</button>
       <button data-f="bekliyor" class="${odevFilter==='bekliyor'?'on':''}">Bekleyen</button>
       <button data-f="yapildi" class="${odevFilter==='yapildi'?'on':''}">Yapıldı</button>
-      <button data-f="testsiz" class="${odevFilter==='testsiz'?'on':''}">Testsiz</button>
+      ${isVeli()?`<button data-f="testsiz" class="${odevFilter==='testsiz'?'on':''}">Testsiz</button>`:''}
       <button data-f="hepsi" class="${odevFilter==='hepsi'?'on':''}">Hepsi</button>
     </div>
     <button class="btn brand block" style="margin-top:12px" onclick="openOdevForm()">＋ Yeni ödev</button>

@@ -534,13 +534,23 @@ async function renderOdev(){
       ${o.durum==='yapildi' ? `<span class="chip ok">✓</span>` : ''}
     </div>`;
   };
-  const groups={}; data.forEach(o=>{(groups[o.kaynak]=groups[o.kaynak]||[]).push(o);});
   let html='';
-  ['dershane','okul','veli','diger'].forEach(k=>{
-    const arr=groups[k]; if(!arr||!arr.length)return;
-    html+=`<h2 class="sec" style="display:flex;align-items:center;gap:7px">${srcIcon[k]||''} ${srcLabel[k]} <span style="font-weight:600;color:var(--ink-3);font-size:13px">(${arr.length})</span></h2>`;
-    html+=arr.map(card).join('');
-  });
+  if(odevFilter==='testsiz'){
+    // kitaba (materyal) göre grupla
+    const gb={}; data.forEach(o=>{ const key=o.materyal||'(kitap belirtilmemiş)'; (gb[key]=gb[key]||[]).push(o); });
+    Object.keys(gb).sort((a,b)=>a.localeCompare(b,'tr',{numeric:true,sensitivity:'base'})).forEach(k=>{
+      const arr=gb[k];
+      html+=`<h2 class="sec" style="display:flex;align-items:center;gap:7px">📚 ${esc(k)} <span style="font-weight:600;color:var(--ink-3);font-size:13px">(${arr.length})</span></h2>`;
+      html+=arr.map(card).join('');
+    });
+  } else {
+    const groups={}; data.forEach(o=>{(groups[o.kaynak]=groups[o.kaynak]||[]).push(o);});
+    ['dershane','okul','veli','diger'].forEach(k=>{
+      const arr=groups[k]; if(!arr||!arr.length)return;
+      html+=`<h2 class="sec" style="display:flex;align-items:center;gap:7px">${srcIcon[k]||''} ${srcLabel[k]} <span style="font-weight:600;color:var(--ink-3);font-size:13px">(${arr.length})</span></h2>`;
+      html+=arr.map(card).join('');
+    });
+  }
   list.innerHTML=html;
 }
 async function odevAc(id){

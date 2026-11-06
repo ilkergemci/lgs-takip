@@ -1241,6 +1241,9 @@ async function renderOdevTests(odev){
     .eq('odev_id',odev.id);
   const rows=(links||[]).filter(l=>l.materyal_testleri);
   const tids=rows.map(r=>r.materyal_test_id);
+  // başka ödevlere atanmış testler (aynı testi iki ödeve atamayı önle)
+  const {data:allLinks}=await db.from('odev_test').select('materyal_test_id,odev_id');
+  const usedByOther=new Set((allLinks||[]).filter(l=>l.odev_id!==odev.id).map(l=>l.materyal_test_id));
   const done={};
   if(tids.length){
     const {data}=await db.from('sonuclar').select('id,materyal_test_id,dogru,yanlis,bos,cozum_tarihi')
@@ -1303,8 +1306,8 @@ async function renderOdevTests(odev){
     if(!ms.value){ box.innerHTML='<div style="color:var(--ink-3)">Önce kitap seçin.</div>'; return; }
     const ts=await testsOf(+ms.value);
     if(!ts.length){ box.innerHTML='<div style="color:var(--ink-3)">Bu kitapta test bulunamadı.</div>'; return; }
-    box.innerHTML=ts.map(t=>{ const ekli=linked.has(t.id);
-      return `<label class="otcheck ${ekli?'ekli':''}"><input type="checkbox" value="${t.id}" ${ekli?'disabled checked':''}><span>${esc(testOpt(t))}${ekli?' • ekli':''}</span></label>`;
+    box.innerHTML=ts.map(t=>{ const ekli=linked.has(t.id); const baska=!ekli&&usedByOther.has(t.id);
+      return `<label class="otcheck ${(ekli||baska)?'ekli':''}"><input type="checkbox" value="${t.id}" ${ekli?'disabled checked':''}${baska?' disabled':''}><span>${esc(testOpt(t))}${ekli?' • bu ödevde':baska?' • başka ödevde':''}</span></label>`;
     }).join('');
   };
   ms.onchange=fillTests;

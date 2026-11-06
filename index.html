@@ -146,6 +146,10 @@
   .ck-row .vbtn{flex:none;padding:7px 9px;font-size:13px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--brand);cursor:pointer}
   .soru-chip{padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--ink);font-size:13px;font-weight:650;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .soru-chip.has{border-color:var(--okg);color:var(--okg)}
+  #ot_testler{max-height:300px;overflow:auto}
+  .otcheck{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer;font-size:13.5px;-webkit-tap-highlight-color:transparent}
+  .otcheck input{width:19px;height:19px;flex:none;accent-color:var(--brand)}
+  .otcheck.ekli{opacity:.55;cursor:default}
   .vek-ed{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;flex-direction:column}
   .vek-ed.open{display:flex}
   .vek-top{flex:none;background:var(--surface);border-bottom:1px solid var(--line);padding:7px 8px}
@@ -1265,8 +1269,9 @@ async function renderOdevTests(odev){
   h+=`<div class="card" style="padding:12px">
       <div class="tiny" style="margin-bottom:8px;font-weight:700">Test ekle</div>
       <label class="fld" style="margin:0 0 8px"><span class="lab">Kitap</span><select id="ot_mat"></select></label>
-      <label class="fld" style="margin:0 0 10px"><span class="lab">Test</span><select id="ot_test"><option value="">— Önce kitap seçin —</option></select></label>
-      <button class="btn brand block" id="ot_add">+ Ekle</button>
+      <div class="lab" style="margin:0 0 6px">Testler <span class="tiny" style="font-weight:400">(birden fazla seçebilirsin)</span></div>
+      <div id="ot_testler" style="margin:0 0 10px;color:var(--ink-3);font-size:13px">Önce kitap seçin.</div>
+      <button class="btn brand block" id="ot_add">+ Seçilenleri ekle</button>
     </div>`;
   body.innerHTML=h;
 
@@ -1275,21 +1280,26 @@ async function renderOdevTests(odev){
     if(matched){ if(a.id===matched.id)return -1; if(b.id===matched.id)return 1; }
     return a.ad.localeCompare(b.ad,'tr',{numeric:true,sensitivity:'base'});
   });
-  const ms=$('#ot_mat'), tsel=$('#ot_test');
+  const ms=$('#ot_mat'), box=$('#ot_testler');
   ms.innerHTML=`<option value="">— Seçiniz —</option>`+mats.map(m=>`<option value="${m.id}" ${matched&&m.id===matched.id?'selected':''}>${esc(m.ad)} · ${esc(dersAd(m.ders_id))}</option>`).join('');
   const linked=new Set(tids);
   const fillTests=async()=>{
-    if(!ms.value){ tsel.innerHTML='<option value="">— Önce kitap seçin —</option>'; return; }
+    if(!ms.value){ box.innerHTML='<div style="color:var(--ink-3)">Önce kitap seçin.</div>'; return; }
     const ts=await testsOf(+ms.value);
-    tsel.innerHTML=`<option value="">— Test seçin —</option>`+ts.map(t=>`<option value="${t.id}" ${linked.has(t.id)?'disabled':''}>${testOpt(t)}${linked.has(t.id)?' • ekli':''}</option>`).join('');
+    if(!ts.length){ box.innerHTML='<div style="color:var(--ink-3)">Bu kitapta test bulunamadı.</div>'; return; }
+    box.innerHTML=ts.map(t=>{ const ekli=linked.has(t.id);
+      return `<label class="otcheck ${ekli?'ekli':''}"><input type="checkbox" value="${t.id}" ${ekli?'disabled checked':''}><span>${esc(testOpt(t))}${ekli?' • ekli':''}</span></label>`;
+    }).join('');
   };
   ms.onchange=fillTests;
   if(ms.value) fillTests();
   $('#ot_add').onclick=async()=>{
-    const tid=+tsel.value; if(!tid){ toast('Önce test seç'); return; }
-    const {error}=await db.from('odev_test').insert({odev_id:odev.id,materyal_test_id:tid});
-    if(error){ toast(String(error.code)==='23505'?'Bu test zaten ekli':'Eklenemedi'); return; }
-    toast('Test eklendi'); renderOdevTests(odev);
+    const ids=[...box.querySelectorAll('input[type=checkbox]:checked:not([disabled])')].map(c=>+c.value);
+    if(!ids.length){ toast('Önce test(ler) seç'); return; }
+    const rows=ids.map(id=>({odev_id:odev.id, materyal_test_id:id}));
+    const {error}=await db.from('odev_test').upsert(rows,{onConflict:'odev_id,materyal_test_id',ignoreDuplicates:true});
+    if(error){ toast('Eklenemedi: '+error.message); return; }
+    toast(ids.length+' test eklendi'); renderOdevTests(odev);
   };
 }
 

@@ -84,8 +84,8 @@
   label.fld .lab{font-size:12.5px;font-weight:650;color:var(--ink-2);margin-bottom:5px;display:block}
   input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--ink);font-size:15px;font-family:inherit}
   input:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--brand) 45%,transparent);outline-offset:0;border-color:var(--brand)}
-  .seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
-  .seg button{flex:1;border:none;background:transparent;color:var(--ink-2);padding:9px;border-radius:9px;font-weight:650;font-size:13.5px;cursor:pointer}
+  .seg{display:flex;flex-wrap:wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+  .seg button{flex:1 1 auto;min-width:fit-content;white-space:nowrap;border:none;background:transparent;color:var(--ink-2);padding:9px 8px;border-radius:9px;font-weight:650;font-size:13px;cursor:pointer}
   .seg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
   .list>*+*{margin-top:10px}
   .item{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
@@ -498,6 +498,7 @@ async function renderOdev(){
       <button data-f="geciken" class="${odevFilter==='geciken'?'on':''}">Geciken</button>
       <button data-f="bekliyor" class="${odevFilter==='bekliyor'?'on':''}">Bekleyen</button>
       <button data-f="yapildi" class="${odevFilter==='yapildi'?'on':''}">Yapıldı</button>
+      <button data-f="testsiz" class="${odevFilter==='testsiz'?'on':''}">Testsiz</button>
       <button data-f="hepsi" class="${odevFilter==='hepsi'?'on':''}">Hepsi</button>
     </div>
     <button class="btn brand block" style="margin-top:12px" onclick="openOdevForm()">＋ Yeni ödev</button>
@@ -507,13 +508,17 @@ async function renderOdev(){
   const {data:raw,error}=await q;
   const list=$('#odevList');
   if(error){list.innerHTML=`<div class="empty">Yüklenemedi: ${esc(error.message)}</div>`;return;}
+  // bağlı testi olan ödevler
+  const {data:otLinks}=await db.from('odev_test').select('odev_id');
+  const hasTests=new Set((otLinks||[]).map(x=>x.odev_id));
   const today=todayISO();
   const gecMi=o=>o.durum!=='yapildi' && o.teslim_tarihi && o.teslim_tarihi<today;
   let data=raw||[];
   if(odevFilter==='geciken') data=data.filter(gecMi);
   else if(odevFilter==='bekliyor') data=data.filter(o=>o.durum!=='yapildi' && !gecMi(o));
   else if(odevFilter==='yapildi') data=data.filter(o=>o.durum==='yapildi');
-  if(!data.length){list.innerHTML=`<div class="empty">Bu filtrede ödev yok.</div>`;return;}
+  else if(odevFilter==='testsiz') data=data.filter(o=>!hasTests.has(o.id));
+  if(!data.length){list.innerHTML=`<div class="empty">${odevFilter==='testsiz'?'Test bilgisi girilmemiş ödev yok 🎉':'Bu filtrede ödev yok.'}</div>`;return;}
   const srcIcon={okul:'🏫',dershane:'📘',veli:'👨‍👩‍👦',diger:'•'};
   const srcLabel={dershane:'Dershane',okul:'Okul',veli:'Veli',diger:'Diğer'};
   const card=o=>{

@@ -925,6 +925,22 @@ async function syncOdevDurum(testId){
     }
   }catch(_){ }
 }
+// Tek bir ödevin durumunu çift yönlü yeniden değerlendir (test ekleme/çıkarma sonrası)
+async function reevalOdevDurum(odevId){
+  if(!odevId) return;
+  try{
+    const {data:ots}=await db.from('odev_test').select('materyal_test_id').eq('odev_id',odevId);
+    const tids=(ots||[]).map(t=>t.materyal_test_id);
+    if(!tids.length) return;
+    const {data:sols}=await db.from('sonuclar').select('materyal_test_id').in('materyal_test_id',tids);
+    const solved=new Set((sols||[]).map(s=>s.materyal_test_id));
+    const allDone=tids.every(t=>solved.has(t));
+    const {data:od}=await db.from('odevler').select('durum').eq('id',odevId).single();
+    if(!od) return;
+    if(allDone && od.durum!=='yapildi') await db.from('odevler').update({durum:'yapildi'}).eq('id',odevId);
+    else if(!allDone && od.durum==='yapildi') await db.from('odevler').update({durum:'bekliyor'}).eq('id',odevId);
+  }catch(_){ }
+}
 async function saveKitapResult(ctx){
   let d,y,b;
   if(ctx.hasCA){ ({d,y,b}=ctx._dyb||{d:0,y:0,b:0}); if(d+y+b===0){toast('Şıkları işaretle');return;}
@@ -1333,6 +1349,7 @@ async function renderOdevTests(odev){
     const rows=ids.map(id=>({odev_id:odev.id, materyal_test_id:id}));
     const {error}=await db.from('odev_test').upsert(rows,{onConflict:'odev_id,materyal_test_id',ignoreDuplicates:true});
     if(error){ toast('Eklenemedi: '+error.message); return; }
+    await reevalOdevDurum(odev.id); // eklenen testler zaten çözülmüşse ödevi tamamla
     toast(ids.length+' test eklendi'); renderOdevTests(odev);
   };
 }
@@ -1342,6 +1359,7 @@ async function unlinkOdevTest(linkId,odevId){
   if(!confirm('Bu test ödevden çıkarılsın mı?\n(Çözüm kayıtları silinmez, sadece bu ödevle bağlantısı kaldırılır.)')) return;
   const {error}=await db.from('odev_test').delete().eq('id',linkId);
   if(error){ toast('Çıkarılamadı'); return; }
+  await reevalOdevDurum(odevId); // kalan testler tümü çözülüyse ödevi tamamla
   toast('Test çıkarıldı');
   const {data}=await db.from('odevler').select('*').eq('id',odevId).single();
   if(data) renderOdevTests(data);

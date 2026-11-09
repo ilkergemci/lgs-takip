@@ -1494,26 +1494,26 @@ async function openVektorEditor(fotoId,onClose){
   $('#vekTitle').textContent=`Soru ${row.soru_no} · ${row.tip==='bos'?'boş':'yanlış'} — vektör düzenle`;
   const ref=$('#vekRef'); ref.classList.remove('show'); const refSrc=row.foto_url||row.temiz_url;
   ref.innerHTML = refSrc?`<img src="${esc(refSrc)}" alt="orijinal"><button class="ref-rot" id="vekRot" title="Orijinali döndür">⟳</button><span class="refhint">Tekerlek: yakınlaştır · sürükle: kaydır · ⟳ döndür</span>`:'';
-  let W=900,H=600, svg=null;
+  let W=900,H=600,OX=0,OY=0, svg=null;
   if(row.vektor_url){ try{ svg=await fetch(row.vektor_url.split('?')[0]+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.text()); }catch(_){ } }
-  if(svg){ const vb=(svg.match(/viewBox="([-\d.\s]+)"/)||[])[1]; if(vb){ const p=vb.trim().split(/\s+/).map(Number); if(p.length===4&&p[2]>0&&p[3]>0){ W=p[2]; H=p[3]; } } }
+  if(svg){ const vb=(svg.match(/viewBox="([-\d.\s]+)"/)||[])[1]; if(vb){ const p=vb.trim().split(/\s+/).map(Number); if(p.length===4&&p[2]>0&&p[3]>0){ W=p[2]; H=p[3]; OX=p[0]||0; OY=p[1]||0; } } }
   // Kayıpsız düzenleme için fabric JSON (varsa) — SVG tur-döngüsü metni/üssü bozuyor
   const jsonPath = row.vektor_path ? row.vektor_path.replace(/\.svg$/,'.json') : `${row.materyal_test_id}/${row.id}_vektor.json`;
   let fjson=null;
   try{ const ju=db.storage.from('yanlis-foto').getPublicUrl(jsonPath).data.publicUrl; const jr=await fetch(ju+'?v='+Date.now(),{cache:'no-store'}); if(jr.ok){ const txt=await jr.text(); if(txt && txt.trim()[0]==='{'){ fjson=JSON.parse(txt); } } }catch(_){ }
   if(VEK&&VEK.canvas){ try{VEK.canvas.dispose();}catch(_){ } }
   const canvas=new fabric.Canvas('vekCanvas',{backgroundColor:'#ffffff',preserveObjectStacking:true});
-  VEK={canvas,row,W,H,jsonPath,mode:'select',color:'#1b2440',width:2,font:20,history:[],_loading:false,_onClose:onClose||null};
+  VEK={canvas,row,W,H,ox:OX,oy:OY,jsonPath,mode:'select',color:'#1b2440',width:2,font:20,history:[],_loading:false,_onClose:onClose||null};
   vekFit();
   bindVekCanvas(canvas);
   if(fjson){
     VEK._loading=true;
-    canvas.loadFromJSON(fjson,()=>{ canvas.forEachObject(o=>{ o.selectable=true; o.evented=true; }); canvas.requestRenderAll(); VEK._loading=false; vekPush(); });
+    canvas.loadFromJSON(fjson,()=>{ canvas.forEachObject(o=>{ o.selectable=true; o.evented=true; }); canvas.requestRenderAll(); VEK._loading=false; vekPush(); vekFit(); });
   } else if(svg){
     VEK._loading=true;
     fabric.loadSVGFromString(svg,(objs)=>{
       let pending=objs.length||0; if(!pending){ VEK._loading=false; vekPush(); }
-      const done=()=>{ if(--pending<=0){ canvas.requestRenderAll(); VEK._loading=false; vekPush(); } };
+      const done=()=>{ if(--pending<=0){ canvas.requestRenderAll(); VEK._loading=false; vekPush(); vekFit(); } };
       objs.forEach(o=>{
         if(o && o.type==='text'){
           const ob=o.toObject(['styles']); ob.type='i-text';
@@ -1527,8 +1527,9 @@ async function openVektorEditor(fotoId,onClose){
 function vekFit(){
   if(!VEK) return; const stage=$('#vekStage'); const sw=Math.max(200,stage.clientWidth), sh=Math.max(200,stage.clientHeight);
   const c=VEK.canvas; c.setWidth(sw); c.setHeight(sh);
-  const z=Math.min(sw/VEK.W, sh/VEK.H)*0.96;
-  c.setViewportTransform([z,0,0,z,(sw-VEK.W*z)/2,(sh-VEK.H*z)/2]); c.requestRenderAll();
+  const bb=vekContentBox(c,VEK.W,VEK.H); // tüm içeriği (taşanlar dahil) sığdır
+  const z=Math.min(sw/bb.w, sh/bb.h)*0.96;
+  c.setViewportTransform([z,0,0,z,(sw-bb.w*z)/2-bb.x*z,(sh-bb.h*z)/2-bb.y*z]); c.requestRenderAll();
 }
 function bindVekCanvas(c){
   let draft=null, start=null, panning=false, lpx=0, lpy=0;
@@ -1633,9 +1634,18 @@ function setupRefZoom(){
   window.addEventListener('mousemove',wrap._mm); window.addEventListener('mouseup',wrap._mu);
   const rb=$('#vekRot'); if(rb) rb.onclick=(e)=>{ e.stopPropagation(); rot=(rot+90)%360; fit(); };
 }
+function vekContentBox(c,W,H){
+  // Orijinal çerçeveyi (0,0,W,H) her zaman kapsa, taşan nesneleri de ekle — kayıtta kırpılma olmasın
+  let minX=0,minY=0,maxX=W,maxY=H;
+  (c.getObjects()||[]).forEach(o=>{ let b; try{ b=o.getBoundingRect(true,true); }catch(_){ return; }
+    if(!b) return; minX=Math.min(minX,b.left); minY=Math.min(minY,b.top); maxX=Math.max(maxX,b.left+b.width); maxY=Math.max(maxY,b.top+b.height); });
+  const pad=6;
+  return {x:Math.floor(minX-pad),y:Math.floor(minY-pad),w:Math.ceil(maxX-minX+2*pad),h:Math.ceil(maxY-minY+2*pad)};
+}
 async function saveVektorEdit(){
   if(!VEK) return; const c=VEK.canvas, row=VEK.row; const btn=$('#vekSave');
-  let svg; try{ svg=c.toSVG({width:VEK.W,height:VEK.H,viewBox:{x:0,y:0,width:VEK.W,height:VEK.H}}); }catch(e){ toast('SVG üretilemedi'); return; }
+  const bb=vekContentBox(c,VEK.W,VEK.H);
+  let svg; try{ svg=c.toSVG({width:bb.w,height:bb.h,viewBox:{x:bb.x,y:bb.y,width:bb.w,height:bb.h}}); }catch(e){ toast('SVG üretilemedi'); return; }
   const path=row.vektor_path||`${row.materyal_test_id}/${row.id}_vektor.svg`;
   if(btn){ btn.disabled=true; btn.textContent='Kaydediliyor…'; }
   const up=await db.storage.from('yanlis-foto').upload(path,new Blob([svg],{type:'image/svg+xml'}),{contentType:'image/svg+xml',upsert:true});

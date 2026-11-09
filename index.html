@@ -1433,30 +1433,6 @@ async function openCozumDetay(sonucId,testId,odevId){
     return `<div class="caq wrong"><span class="caq-n">${c.soru_no}</span><span class="caq-a">${sec||corr}</span><span class="caq-s">${sec?('d:'+corr):'yanlış'}</span></div>`;
   }).join('');
 
-  // konu seçilecek sorular: yanlış + boş (yanlis_foto satırları)
-  const marks=YF.slice().sort((a,b)=>a.soru_no-b.soru_no);
-  let konuHtml;
-  if(!ks.length){
-    konuHtml=`<p class="hint">Bu ders için tanımlı konu yok.</p>`;
-  } else if(!marks.length){
-    konuHtml=((sonuc.yanlis||0)+(sonuc.bos??0)>0)
-      ? `<div class="empty">Bu çözümde soru bazında yanlış/boş kaydı yok (fotoğrafsız girilmiş), konu işaretlenemiyor.</div>`
-      : `<div class="empty">Bu çözümde yanlış/boş soru yok 🎉</div>`;
-  } else {
-    konuHtml=`<div class="card" style="padding:0" id="ckSelects">`+marks.map(f=>{
-      const def = (f.konu_id!=null?f.konu_id : (mskByQ[f.soru_no]!=null?mskByQ[f.soru_no] : (test.konu_id!=null?test.konu_id:'')));
-      return `<div class="ck-row">
-        <span style="font-size:13px;white-space:nowrap"><b>Soru ${f.soru_no}</b> <span class="tiny" style="color:var(--${f.tip==='bos'?'ink-3':'bad'})">${f.tip==='bos'?'boş':'yanlış'}</span></span>
-        <select class="konu-sel" data-yf="${f.id}">
-          <option value="">— konu seç —</option>
-          ${ks.map(k=>`<option value="${k.id}" ${String(def)===String(k.id)?'selected':''}>${esc(k.ad)}</option>`).join('')}
-        </select>
-        <button class="vbtn" title="Vektörü düzenle" onclick="requireEdit(()=>openVektorEditor(${f.id}))">✎ vektör</button>
-      </div>`;
-    }).join('')+`</div>
-    <button class="btn brand block" style="margin-top:14px" id="ck_save">Konuları kaydet</button>`;
-  }
-
   dyn.innerHTML=`<h3>${esc(testLabel(test))}</h3>
     <p class="hint">${esc((test.materyaller||{}).ad||'')} · ${trDate(sonuc.cozum_tarihi)}</p>
     <div class="card" style="margin-top:10px;padding:12px;display:flex;align-items:center;justify-content:space-between">
@@ -1465,13 +1441,8 @@ async function openCozumDetay(sonucId,testId,odevId){
     </div>
     <h2 class="sec" style="margin-top:16px">Cevap anahtarı <span style="text-transform:none;font-weight:600">${veliEdit?'(doğru cevabı seçerek düzelt)':'(değiştirilemez)'}</span></h2>
     <p class="tiny" style="margin:0 4px 2px">Yeşil: doğru · Kırmızı: öğrencinin işareti (d: doğru cevap) · Gri: boş${veliEdit?' · Anahtarı düzeltince öğrencinin işaretine göre D/Y otomatik güncellenir':''}</p>
-    <div class="ca-review">${grid}</div>
-    ${isVeli()?`<h2 class="sec" style="margin-top:16px">Yanlış / boş soruların konusu</h2>
-    <p class="tiny" style="margin:0 4px 8px">Her sorunun hangi konudan olduğunu seç. Kaydedince analize işlenir.</p>
-    ${konuHtml}`:''}`;
+    <div class="ca-review">${grid}</div>`;
 
-  const sv=$('#ck_save');
-  if(sv) sv.onclick=()=>saveCozumKonu(sonucId,odevId,sv);
   $$('.caq-key').forEach(sel=>{ sel.onchange=()=>veliApplyKey(sonucId,test.id,odevId,+sel.dataset.q,sel.dataset.old||'',sel.value); });
 }
 // Veli: cevap anahtarını düzelt + mevcut çözümü öğrencinin işaretine göre yeniden değerlendir

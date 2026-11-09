@@ -532,7 +532,7 @@ async function renderOdev(){
     return `<div class="item">
       <div class="dot" style="background:var(--${col})"></div>
       <div style="flex:1;min-width:0;cursor:pointer" onclick="odevAc(${o.id})" title="Detay / sonuç gir">
-        <div class="t">${esc(o.baslik||'Ödev')} <span style="color:var(--ink-3);font-weight:600">›</span></div>
+        <div class="t"><span style="color:var(--ink-3);font-weight:700">#${o.id}</span> ${esc(o.baslik||'Ödev')} <span style="color:var(--ink-3);font-weight:600">›</span></div>
         <div class="d">${esc(o.kurum||srcLabel[o.kaynak]||o.kaynak)} · ${dersAd(o.ders_id)}${o.materyal?' · '+esc(o.materyal):''}${o.teslim_tarihi?' · teslim '+trDate(o.teslim_tarihi):''}</div>
       </div>
       ${o.durum==='yapildi' ? `<span class="chip ok">✓</span>` : ''}
@@ -1240,7 +1240,7 @@ async function renderAnaliz(){
 /* ----- RESULT SHEET (ödevden) ----- */
 function openResultSheet({fromOdev}){
   // ödev detayı: bu ödeve bağlı testler + test ekleme + çözme
-  sheet(`<h3>${esc(fromOdev.baslik||'Ödev')}</h3>
+  sheet(`<h3><span style="color:var(--ink-3)">#${fromOdev.id}</span> ${esc(fromOdev.baslik||'Ödev')}</h3>
     <p class="hint">${esc(dersAd(fromOdev.ders_id))}${fromOdev.materyal?' · '+esc(fromOdev.materyal):''}${fromOdev.teslim_tarihi?' · teslim '+trDate(fromOdev.teslim_tarihi):''}</p>
     <div id="rsBody"><div class="sk" style="margin-top:12px"></div></div>
     ${isVeli()?`<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">

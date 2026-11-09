@@ -188,6 +188,8 @@
   details > summary{list-style:none} details > summary::-webkit-details-marker{display:none}
   .konu-pick{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px;margin-top:6px}
   .kline{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:9px}
+  .kline-flash{animation:klflash 1.8s ease}
+  @keyframes klflash{0%,100%{background:transparent}15%,50%{background:var(--ok-soft)}}
   .kline:nth-child(odd){background:var(--surface-2)}
   .kline .kn{flex:1;font-size:13.5px}
   .step{display:flex;align-items:center;gap:8px}
@@ -943,7 +945,7 @@ async function saveKitapResult(ctx){
   await syncOdevDurum(ctx.test.id); // bu testi içeren ödevlerin tümü çözüldüyse yapıldı işaretle
   $('#k_save').disabled=false;
   closeSheet(); toast(`Kaydedildi · net ${fnet(d,y)}`);
-  if(solveReturn && solveReturn.view==='kitap'){ kitapExpand=solveReturn.mid; solveReturn=null; setView('kitap'); }
+  if(solveReturn && solveReturn.view==='kitap'){ kitapExpand=solveReturn.mid; kitapScrollTid=solveReturn.tid||null; solveReturn=null; setView('kitap'); }
   else setView('ozet');
 }
 
@@ -1012,7 +1014,7 @@ async function saveDeneme(){
 
 /* ----- KİTAPLAR ----- */
 let kitapDers='';
-let solveReturn=null, kitapExpand=null;
+let solveReturn=null, kitapExpand=null, kitapScrollTid=null;
 async function renderKitap(){
   const el=$('#view-kitap');
   const dersOpts=`<option value="">Tüm dersler</option>`+S.dersler.map(d=>`<option value="${d.id}" ${kitapDers==d.id?'selected':''}>${esc(d.ad)}</option>`).join('');
@@ -1046,7 +1048,15 @@ async function renderKitap(){
   });
   body.innerHTML=html;
   body.querySelectorAll('.kitap-head').forEach(b=>b.onclick=()=>toggleKitapTests(b.dataset.m));
-  if(kitapExpand){ const m=kitapExpand; kitapExpand=null; const head=body.querySelector('.kitap-head[data-m="'+m+'"]'); if(head){ toggleKitapTests(m); head.scrollIntoView({block:'center'}); } }
+  if(kitapExpand){ const m=kitapExpand; const tid=kitapScrollTid; kitapExpand=null; kitapScrollTid=null;
+    const head=body.querySelector('.kitap-head[data-m="'+m+'"]');
+    if(head){ await toggleKitapTests(m);
+      const box=$('#ktt_'+m);
+      const target= (tid!=null && box) ? box.querySelector('.kline[data-tid="'+tid+'"]') : null;
+      if(target){ target.scrollIntoView({block:'start',behavior:'smooth'}); target.classList.add('kline-flash'); setTimeout(()=>target.classList.remove('kline-flash'),1800); }
+      else head.scrollIntoView({block:'center'});
+    }
+  }
 }
 async function toggleKitapTests(mid){
   const box=$('#ktt_'+mid);
@@ -1069,7 +1079,7 @@ async function toggleKitapTests(mid){
   box.querySelector('.konu-pick').onclick=e=>{ const row=e.target.closest('.kline'); if(!row)return; const t=ts.find(x=>x.id==row.dataset.tid); if(t) openKitapTest(t, mat.ders_id, mat.ad, mid); };
 }
 function openKitapTest(test, dersId, matName, mid){
-  solveReturn={view:'kitap', mid: mid||test.materyal_id||null};
+  solveReturn={view:'kitap', mid: mid||test.materyal_id||null, tid: test.id};
   const sd=$('#view-sonuc #k_dyn'); if(sd) sd.innerHTML=''; // Sonuç sekmesiyle ID çakışmasını önle
   sheet(`<h3>${esc(testLabel(test))}</h3><p class="hint">${esc(matName||'')}</p><div id="kt_dyn"></div>`);
   buildKitapEntry(test, dersId, $('#kt_dyn'));

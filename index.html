@@ -1403,11 +1403,20 @@ async function openCozumDetay(sonucId,testId,odevId){
     return;
   }
   // salt-okunur cevap anahtarı: doğru=yeşil, yanlış=kırmızı, boş=gri (yanlis_foto'ya göre)
+  const veliEdit=isVeli();
   const grid=CA.map(c=>{
     const f=yfByQ[c.soru_no], corr=esc(c.dogru_cevap||'–');
+    const cls=!f?'ok':(f.tip==='bos'?'blank':'wrong');
+    const sec=f&&f.secilen?esc(f.secilen):null;
+    const mark=!f?corr:(f.tip==='bos'?'–':(sec||corr));
+    if(veliEdit){
+      const cur=(c.dogru_cevap||'');
+      const opts=['A','B','C','D','E'].map(L=>`<option ${L===cur?'selected':''}>${L}</option>`).join('');
+      return `<div class="caq ${cls}"><span class="caq-n">${c.soru_no}</span><span class="caq-a">${mark}</span>`+
+        `<select class="caq-key" data-q="${c.soru_no}" data-old="${cur}" title="Doğru cevabı düzelt" style="margin-top:3px;font-size:12px;padding:1px 2px;border-radius:6px;border:1px solid var(--line)">${opts}</select></div>`;
+    }
     if(!f) return `<div class="caq ok"><span class="caq-n">${c.soru_no}</span><span class="caq-a">${corr}</span><span class="caq-s">doğru</span></div>`;
     if(f.tip==='bos') return `<div class="caq blank"><span class="caq-n">${c.soru_no}</span><span class="caq-a">–</span><span class="caq-s">boş · d:${corr}</span></div>`;
-    const sec=f.secilen?esc(f.secilen):null;
     return `<div class="caq wrong"><span class="caq-n">${c.soru_no}</span><span class="caq-a">${sec||corr}</span><span class="caq-s">${sec?('d:'+corr):'yanlış'}</span></div>`;
   }).join('');
 
@@ -1441,8 +1450,8 @@ async function openCozumDetay(sonucId,testId,odevId){
       <div><div class="tiny">Net</div><div class="net-big">${fnet(sonuc.dogru,sonuc.yanlis)}</div></div>
       <div style="text-align:right"><div class="tiny">D / Y / B</div><div style="font-weight:800;font-size:17px">${sonuc.dogru} / ${sonuc.yanlis} / ${sonuc.bos??0}</div></div>
     </div>
-    <h2 class="sec" style="margin-top:16px">Cevap anahtarı <span style="text-transform:none;font-weight:600">(değiştirilemez)</span></h2>
-    <p class="tiny" style="margin:0 4px 2px">Yeşil: doğru · Kırmızı: öğrencinin işareti (d: doğru cevap) · Gri: boş</p>
+    <h2 class="sec" style="margin-top:16px">Cevap anahtarı <span style="text-transform:none;font-weight:600">${veliEdit?'(doğru cevabı seçerek düzelt)':'(değiştirilemez)'}</span></h2>
+    <p class="tiny" style="margin:0 4px 2px">Yeşil: doğru · Kırmızı: öğrencinin işareti (d: doğru cevap) · Gri: boş${veliEdit?' · Anahtarı düzeltince öğrencinin işaretine göre D/Y otomatik güncellenir':''}</p>
     <div class="ca-review">${grid}</div>
     ${isVeli()?`<h2 class="sec" style="margin-top:16px">Yanlış / boş soruların konusu</h2>
     <p class="tiny" style="margin:0 4px 8px">Her sorunun hangi konudan olduğunu seç. Kaydedince analize işlenir.</p>
@@ -1450,6 +1459,38 @@ async function openCozumDetay(sonucId,testId,odevId){
 
   const sv=$('#ck_save');
   if(sv) sv.onclick=()=>saveCozumKonu(sonucId,odevId,sv);
+  $$('.caq-key').forEach(sel=>{ sel.onchange=()=>veliApplyKey(sonucId,test.id,odevId,+sel.dataset.q,sel.dataset.old||'',sel.value); });
+}
+// Veli: cevap anahtarını düzelt + mevcut çözümü öğrencinin işaretine göre yeniden değerlendir
+async function veliApplyKey(sonucId,testId,odevId,soruNo,oldAns,newAns){
+  if(!isVeli()){ toast('Yetki yok'); return; }
+  if(!newAns || oldAns===newAns) return;
+  // 1) cevap anahtarını güncelle (paylaşımlı)
+  const uk=await db.from('cevap_anahtari').update({dogru_cevap:newAns}).eq('materyal_test_id',testId).eq('soru_no',soruNo);
+  if(uk.error){ toast('Anahtar güncellenemedi'); return; }
+  // 2) bu çözümdeki soruyu yeniden değerlendir
+  const {data:yfRows}=await db.from('yanlis_foto').select('id,tip,secilen').eq('sonuc_id',sonucId).eq('soru_no',soruNo);
+  const row=(yfRows&&yfRows[0])||null;
+  let dDelta=0,yDelta=0, note='';
+  if(row){
+    if(row.tip==='bos'){ /* boş kalır */ }
+    else if(row.secilen==null){ note=' · bu soruda öğrenci işareti kayıtlı değil, D/Y elle kontrol et'; }
+    else if(row.secilen===newAns){ // artık doğru
+      await db.from('yanlis_foto').delete().eq('id',row.id); dDelta=1; yDelta=-1;
+    } // aksi halde hâlâ yanlış
+  } else {
+    // önceden doğru sayılmış → öğrencinin işareti = eski doğru cevap
+    if(oldAns && oldAns!==newAns){ // artık yanlış
+      await db.from('yanlis_foto').insert({sonuc_id:sonucId,materyal_test_id:testId,soru_no:soruNo,tip:'yanlis',secilen:oldAns});
+      dDelta=-1; yDelta=1;
+    }
+  }
+  if(dDelta||yDelta){
+    const {data:s}=await db.from('sonuclar').select('dogru,yanlis').eq('id',sonucId).single();
+    if(s) await db.from('sonuclar').update({dogru:Math.max(0,(s.dogru||0)+dDelta),yanlis:Math.max(0,(s.yanlis||0)+yDelta)}).eq('id',sonucId);
+  }
+  toast('Cevap anahtarı güncellendi'+(dDelta>0?' · doğru yapıldı':dDelta<0?' · yanlış yapıldı':'')+note);
+  openCozumDetay(sonucId,testId,odevId); // yeniden çiz
 }
 async function saveCozumKonu(sonucId,odevId,btn){
   btn.disabled=true;

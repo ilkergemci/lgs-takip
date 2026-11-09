@@ -276,6 +276,8 @@
       <button data-mode="ellipse" title="Elips / Daire">◯</button>
       <button data-mode="line" title="Çizgi">╱</button>
       <button data-mode="draw" title="Serbest çizim (kalem)">✎</button>
+      <button id="vekImg" title="Resim ekle (dosyadan) · ayrıca Ctrl+V ile kopyalanan resmi yapıştır">🖼＋ Resim</button>
+      <input type="file" id="vekImgFile" accept="image/*" style="display:none">
       <span class="sep"></span>
       <input type="color" id="vekColor" value="#1b2440" title="Renk">
       <select id="vekWidth" title="Çizgi kalınlığı"><option value="1">ince</option><option value="2" selected>orta</option><option value="4">kalın</option><option value="7">çok kalın</option></select>
@@ -1589,6 +1591,20 @@ function vekScript(up){
   o.setSelectionStyles({ fontSize: Math.max(8,Math.round(base*0.65)), deltaY: up? -Math.round(base*0.33) : Math.round(base*0.22) }, s, e);
   c.requestRenderAll(); vekPush();
 }
+function vekAddImage(src){ if(!VEK||!src) return;
+  fabric.Image.fromURL(src,img=>{
+    if(!img){ toast('Resim yüklenemedi'); return; }
+    const maxW=VEK.W*0.6, maxH=VEK.H*0.6;
+    const sc=Math.min(1, maxW/(img.width||1), maxH/(img.height||1));
+    img.set({left:VEK.W*0.18, top:VEK.H*0.18, scaleX:sc, scaleY:sc, selectable:true, evented:true});
+    if(VEK.mode!=='select') vekSetMode('select');
+    VEK.canvas.add(img); VEK.canvas.setActiveObject(img); VEK.canvas.requestRenderAll(); vekPush();
+    toast('Resim eklendi · taşı/boyutlandır');
+  },{crossOrigin:'anonymous'});
+}
+function vekFileToImg(file){ if(!file||!/^image\//.test(file.type||'')){ toast('Resim dosyası seç'); return; }
+  const rd=new FileReader(); rd.onerror=()=>toast('Resim okunamadı'); rd.onload=()=>vekAddImage(rd.result); rd.readAsDataURL(file); }
+function vekPickImage(){ const f=$('#vekImgFile'); if(f){ f.value=''; f.click(); } }
 function vekToggleRef(){ const r=$('#vekRef'); if(!r.innerHTML){ toast('Orijinal fotoğraf yok'); return; }
   const show=!r.classList.contains('show'); r.classList.toggle('show',show);
   requestAnimationFrame(()=>{ vekFit(); if(show) setupRefZoom(); });
@@ -1642,6 +1658,8 @@ function wireVekTools(){
   $('#vekFont').onchange=e=>vekSetFont(e.target.value);
   $('#vekSup').onmousedown=e=>{ e.preventDefault(); vekScript(true); };
   $('#vekSub').onmousedown=e=>{ e.preventDefault(); vekScript(false); };
+  $('#vekImg').onclick=vekPickImage;
+  const _fi=$('#vekImgFile'); if(_fi) _fi.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f) vekFileToImg(f); };
   $('#vekDup').onclick=vekDup;
   $('#vekDel').onclick=vekDel;
   $('#vekUndo').onclick=vekUndo;
@@ -1658,7 +1676,13 @@ window.addEventListener('keydown',e=>{
   if((e.key==='Delete'||e.key==='Backspace')&&a){ e.preventDefault(); vekDel(); return; }
   if(mod&&(e.key==='d'||e.key==='D')){ e.preventDefault(); vekDup(); return; }
   if(mod&&(e.key==='c'||e.key==='C')){ e.preventDefault(); vekCopy(); return; }
-  if(mod&&(e.key==='v'||e.key==='V')){ e.preventDefault(); vekPaste(); return; }
+  if(mod&&(e.key==='v'||e.key==='V')){ if(VEK._clip){ e.preventDefault(); vekPaste(); } return; } // iç kopya varsa onu yapıştır; yoksa 'paste' olayı dış resmi alır
+});
+window.addEventListener('paste',e=>{
+  if(!VEK||!$('#vekEditor').classList.contains('open')) return;
+  const a=VEK.canvas.getActiveObject(); if(a&&a.isEditing) return; // metin düzenlerken normal yapıştır
+  const items=(e.clipboardData&&e.clipboardData.items)||[];
+  for(const it of items){ if(it.type&&it.type.indexOf('image')===0){ const file=it.getAsFile(); if(file){ e.preventDefault(); vekFileToImg(file); return; } } }
 });
 
 /* ---------- TEKRAR (yanlış soruları yeniden çöz) ---------- */

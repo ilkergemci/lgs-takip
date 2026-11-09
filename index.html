@@ -680,9 +680,12 @@ async function buildKitapEntry(test, dersId, dynEl){
         const fs=fotoByS[p.id]||[];
         const thumbs=fs.length?`<div class="photo-thumbs">${fs.map(f=>`<a href="${f.foto_url}" target="_blank" rel="noopener" title="Soru ${f.soru_no} · ${f.tip==='bos'?'boş':'yanlış'}"><img src="${f.foto_url}" alt="soru ${f.soru_no}" loading="lazy"><span>${f.soru_no}</span></a>`).join('')}</div>`:'';
         return `<div style="padding:6px 0;border-top:1px solid var(--line)">
-          <div class="row" style="justify-content:space-between;gap:8px">
+          <div class="row" style="justify-content:space-between;gap:8px;align-items:center">
             <span class="tiny" style="color:var(--ink-2)">${trDate(p.cozum_tarihi)}</span>
             <span style="font-size:12.5px"><b>D</b> ${p.dogru} · <b>Y</b> ${p.yanlis} · <b>B</b> ${p.bos??0} <span style="color:var(--ink-3)">· net ${net}</span></span>
+          </div>
+          <div class="row" style="justify-content:flex-end;margin-top:5px">
+            <button class="btn sm" onclick="openCozumDetay(${p.id},${test.id},null)">${isVeli()?'Soru bazında · anahtar düzelt ›':'Soru bazında gör ›'}</button>
           </div>${thumbs}
         </div>`;
       }).join('')}</div>
@@ -1392,7 +1395,7 @@ async function openCozumDetay(sonucId,testId,odevId){
   const mskByQ={}; MSK.forEach(m=>{ mskByQ[m.soru_no]=m.konu_id; });
   const yfByQ={}; YF.forEach(f=>{ yfByQ[f.soru_no]=f; });
   // geri dön
-  $('#cd_back').onclick=async()=>{ const {data}=await db.from('odevler').select('*').eq('id',odevId).single(); if(data) openResultSheet({fromOdev:data}); else closeSheet(); };
+  $('#cd_back').onclick=async()=>{ if(odevId){ const {data}=await db.from('odevler').select('*').eq('id',odevId).single(); if(data){ openResultSheet({fromOdev:data}); return; } } closeSheet(); };
 
   const ks=S.konByDers[dersId]||[];
   const dyn=$('#cd_dyn');

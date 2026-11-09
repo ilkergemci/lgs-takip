@@ -747,7 +747,7 @@ async function buildKitapEntry(test, dersId, dynEl){
     const upd=()=>{ const d=+$('#m_d').value||0,y=+$('#m_y').value||0,b=+$('#m_b').value||0; $('#netOut').textContent=fnet(d,y); $('#dybOut').textContent=`${d} / ${y} / ${b}`; };
     ['m_d','m_y','m_b'].forEach(id=>$('#'+id).oninput=upd); upd();
   }
-  buildKonuBox(ctx);
+  // Konu işaretleme kitap girişinde kaldırıldı (konu, Tekrar sayfasında işaretleniyor)
   $('#k_save').onclick=()=>saveKitapResult(ctx);
 }
 

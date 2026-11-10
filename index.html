@@ -1761,7 +1761,8 @@ async function renderTekrar(){
   // teste göre grupla
   const groups={};
   rows.forEach(r=>{ (groups[r.materyal_test_id]=groups[r.materyal_test_id]||{t:r._t,mat:r._mat,items:[]}).items.push(r); });
-  const gArr=Object.values(groups).sort((a,b)=>(a.mat.ders_id-b.mat.ders_id)||a.mat.ad.localeCompare(b.mat.ad,'tr'));
+  const _acik=g=>g.items.filter(x=>!x.konu_id).length; // konu atanmamış (işi kalan) soru sayısı
+  const gArr=Object.values(groups).sort((a,b)=>(a.mat.ders_id-b.mat.ders_id)||((_acik(b)>0?1:0)-(_acik(a)>0?1:0))||a.mat.ad.localeCompare(b.mat.ad,'tr'));
 
   window._tekrarAll=rows;
   let h=`<div class="row" style="justify-content:space-between;align-items:center;margin:16px 2px 10px">
@@ -1779,7 +1780,7 @@ async function renderTekrar(){
           <button class="btn sm brand" onclick='tekrarBasla(window._tekrarAll.filter(x=>x.materyal_test_id==${g.t.id}))'>Başla ›</button>
         </div>
         ${isVeli()?`<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:10px">
-          ${g.items.map(it=>`<button class="soru-chip ${it.konu_id?'has':''}" onclick="openSoruDuzenleById(${it.id})">Soru ${it.soru_no}${it.tip==='bos'?' · boş':''}${it.konu_id?' ●':''}</button>`).join('')}
+          ${g.items.slice().sort((a,b)=>(a.konu_id?1:0)-(b.konu_id?1:0)||a.soru_no-b.soru_no).map(it=>`<button class="soru-chip ${it.konu_id?'has':''}" onclick="openSoruDuzenleById(${it.id})">Soru ${it.soru_no}${it.tip==='bos'?' · boş':''}${it.konu_id?' ●':''}</button>`).join('')}
         </div>
         <div class="tiny" style="margin-top:7px;color:var(--ink-3)">Başla: öğrenci çözer · Soruya dokun: çizim ve konu düzenle</div>`:''}
       </div>`;

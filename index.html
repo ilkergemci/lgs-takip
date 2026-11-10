@@ -1762,18 +1762,15 @@ async function renderTekrar(){
   const groups={};
   rows.forEach(r=>{ (groups[r.materyal_test_id]=groups[r.materyal_test_id]||{t:r._t,mat:r._mat,items:[]}).items.push(r); });
   const _acik=g=>g.items.filter(x=>!x.konu_id).length; // konu atanmamış (işi kalan) soru sayısı
-  const gArr=Object.values(groups).sort((a,b)=>(a.mat.ders_id-b.mat.ders_id)||((_acik(b)>0?1:0)-(_acik(a)>0?1:0))||a.mat.ad.localeCompare(b.mat.ad,'tr'));
+  const byDK=(a,b)=>(a.mat.ders_id-b.mat.ders_id)||a.mat.ad.localeCompare(b.mat.ad,'tr');
+  const all=Object.values(groups);
+  const acik=all.filter(g=>_acik(g)>0).sort(byDK);   // konusu girilecek testler
+  const done=all.filter(g=>_acik(g)===0).sort(byDK); // tamamı konusu girilmiş (yeşil) testler
 
   window._tekrarAll=rows;
-  let h=`<div class="row" style="justify-content:space-between;align-items:center;margin:16px 2px 10px">
-      <div><div style="font-weight:800;font-size:20px">${rows.length}</div><div class="tiny">tekrar edilecek yanlış soru</div></div>
-      <button class="btn brand" onclick="tekrarBasla(window._tekrarAll)">🎲 Karışık başla</button>
-    </div>`;
-  let curD=null;
-  gArr.forEach(g=>{
-    if(g.mat.ders_id!==curD){ curD=g.mat.ders_id; h+=`<h2 class="sec">${esc(dersAd(curD))}</h2>`; }
+  const cardHtml=(g)=>{
     const lbl=testLabel({unite:g.t.unite,bolum:g.t.bolum,test_no:g.t.test_no,id:g.t.id});
-    h+=`<div class="card" style="padding:12px 14px;margin-bottom:8px">
+    return `<div class="card" style="padding:12px 14px;margin-bottom:8px">
         <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
           <div style="min-width:0"><div style="font-weight:650;font-size:13.5px">${esc(g.mat.ad||'')}</div>
             <div class="tiny">${esc(lbl)} · ${g.items.length} yanlış soru</div></div>
@@ -1784,7 +1781,23 @@ async function renderTekrar(){
         </div>
         <div class="tiny" style="margin-top:7px;color:var(--ink-3)">Başla: öğrenci çözer · Soruya dokun: çizim ve konu düzenle</div>`:''}
       </div>`;
+  };
+  let h=`<div class="row" style="justify-content:space-between;align-items:center;margin:16px 2px 10px">
+      <div><div style="font-weight:800;font-size:20px">${rows.length}</div><div class="tiny">tekrar edilecek yanlış soru</div></div>
+      <button class="btn brand" onclick="tekrarBasla(window._tekrarAll)">🎲 Karışık başla</button>
+    </div>`;
+  let curD=null;
+  acik.forEach(g=>{
+    if(g.mat.ders_id!==curD){ curD=g.mat.ders_id; h+=`<h2 class="sec">${esc(dersAd(curD))}</h2>`; }
+    h+=cardHtml(g);
   });
+  if(done.length){
+    const dsum=done.reduce((a,g)=>a+g.items.length,0);
+    h+=`<details style="margin-top:18px"><summary style="cursor:pointer;font-weight:750;color:var(--ok);padding:10px 2px;list-style:none">✓ Konusu girilmiş testler (${done.length} test · ${dsum} soru) ›</summary><div style="margin-top:8px">`;
+    let cd=null;
+    done.forEach(g=>{ if(g.mat.ders_id!==cd){ cd=g.mat.ders_id; h+=`<h2 class="sec" style="font-size:13px;opacity:.8">${esc(dersAd(cd))}</h2>`; } h+=cardHtml(g); });
+    h+=`</div></details>`;
+  }
   el.innerHTML=h;
 }
 

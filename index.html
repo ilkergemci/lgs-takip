@@ -1804,6 +1804,22 @@ async function saveSoruKonu(fotoId, sonucId, konuId){
   return true;
 }
 function requireEdit(cb){ if(isVeli()){ cb(); } else { toast('Bu bölüm veli içindir (1907 ile giriş)'); } }
+// Vektör üretimini (yeniden) tetikle ve sonucu bekle
+async function retryVektor(r, btn){
+  if(btn){ btn.disabled=true; btn.textContent='Oluşturuluyor…'; }
+  try{ await db.functions.invoke('vektorle',{body:{foto_id:r.id}}); }catch(_){ }
+  let ok=false;
+  for(let i=0;i<10;i++){ await new Promise(s=>setTimeout(s,3000));
+    const {data}=await db.from('yanlis_foto').select('vektor_url,vektor_durum,vektor_hata,temiz_url,foto_url').eq('id',r.id).single();
+    if(data){ Object.assign(r,data);
+      if(data.vektor_durum==='hazir'){ ok=true; break; }
+      if(data.vektor_durum==='hata'){ break; }
+    }
+  }
+  const im=$('#sd_img'); if(im) im.src=bestFotoUrl(r)+((bestFotoUrl(r).indexOf('?')<0?'?':'&')+'t='+Date.now());
+  if(btn){ btn.disabled=false; btn.textContent='⟳ Vektör oluştur'; btn.style.display=(r.vektor_durum==='hazir')?'none':''; }
+  toast(ok?'Vektör hazır ✓':(r.vektor_hata?('Oluşturulamadı: '+r.vektor_hata+' — elle çizebilirsin'):'Henüz hazır değil, biraz sonra tekrar dene'));
+}
 function openSoruDuzenleById(id){ const r=(window._tekrarAll||[]).find(x=>x.id===id); if(!r){ toast('Soru bulunamadı'); return; } openSoruDuzenle(r); }
 function openSoruDuzenle(r){
   const src=bestFotoUrl(r);
@@ -1816,6 +1832,7 @@ function openSoruDuzenle(r){
     <div class="row" style="justify-content:space-between;margin:8px 2px 2px;gap:6px;flex-wrap:wrap">
       <button class="btn sm brand" id="sd_edit">✎ Çizimi düzenle</button>
       <button class="btn sm" id="sd_orig">Orijinali gör</button>
+      ${r.vektor_durum!=='hazir'?`<button class="btn sm" id="sd_vek">⟳ Vektör oluştur</button>`:''}
     </div>
     <h2 class="sec" style="margin-top:16px">Konu</h2>
     <div class="row" style="gap:8px;align-items:center">
@@ -1831,6 +1848,7 @@ function openSoruDuzenle(r){
     if(data){ Object.assign(r,data); const im=$('#sd_img'); if(im) im.src=bestFotoUrl(r); showOrig=false; const ob=$('#sd_orig'); if(ob)ob.textContent='Orijinali gör'; }
   });
   $('#sd_edit').onclick=openEdit; $('#sd_imgwrap').onclick=openEdit;
+  const vbtn=$('#sd_vek'); if(vbtn) vbtn.onclick=()=>retryVektor(r,vbtn);
   const ksel=$('#sd_konu');
   if(ksel && ks.length) ksel.onchange=()=>{ pendingKonu = ksel.value?+ksel.value:null; };
   $('#sd_save').onclick=async()=>{

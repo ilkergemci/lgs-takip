@@ -286,7 +286,7 @@
       <select id="vekFont" title="Yazı boyutu"><option value="14">14</option><option value="20" selected>20</option><option value="26">26</option><option value="34">34</option></select>
       <button id="vekSup" title="Üs: yazıya çift tıkla, karakteri seç, bas">x²</button>
       <button id="vekSub" title="İndis: yazıya çift tıkla, karakteri seç, bas">x₂</button>
-      <button id="vekBold" title="Seçili yazıyı kalın/ince yap"><b>B</b> Kalın</button>
+      <button id="vekBold" title="Kalın/ince: yazıya çift tıkla, harfleri seç, bas"><b>B</b> Kalın</button>
       <span class="sep"></span>
       <button id="vekDup" title="Seçili şekli kopyala / çoğalt">⧉ Kopyala</button>
       <button id="vekDel" title="Seçiliyi sil">🗑 Sil</button>
@@ -1669,11 +1669,13 @@ async function vekReVektorNow(){
   if(durum==='hazir'){ toast('Vektör hazır ✓'); openVektorEditor(row.id, VEK._onClose); }
   else toast(durum==='hata'?('Oluşturulamadı: '+(hata||'')):'Henüz hazır değil, biraz sonra tekrar dene');
 }
-function vekBold(){ if(!VEK) return; const c=VEK.canvas;
-  const objs=c.getActiveObjects().filter(o=>o.type&&/text/i.test(o.type));
-  if(!objs.length){ toast('Önce bir yazı seç'); return; }
-  const kalin=objs.some(o=>(o.fontWeight||'normal')!=='bold'); // biri ince ise hepsini kalın yap, hepsi kalınsa inceye çevir
-  objs.forEach(o=>o.set('fontWeight', kalin?'bold':'normal'));
+function vekBold(){ if(!VEK) return; const c=VEK.canvas; const o=c.getActiveObject();
+  if(!o || !/^(i-text|text|textbox)$/.test(o.type||'')){ toast('Önce yazıya çift tıkla, kalın/ince yapılacak kısmı seç'); return; }
+  const s=o.selectionStart, e=o.selectionEnd;
+  if(s==null||e==null||s===e){ toast('Kalın/ince yapılacak harfleri seç (çift tıkla, sürükle)'); return; }
+  let hepsiKalin=true; // seçimin tamamı kalınsa inceye, değilse kalına çevir
+  for(let i=s;i<e;i++){ const st=(o.getSelectionStyles(i,i+1)[0])||{}; const w=st.fontWeight||o.fontWeight||'normal'; if(String(w)!=='bold'&&String(w)!=='700'){ hepsiKalin=false; break; } }
+  o.setSelectionStyles({ fontWeight: hepsiKalin?'normal':'bold' }, s, e);
   c.requestRenderAll(); vekPush();
 }
 function vekToggleRef(){ const r=$('#vekRef'); if(!r.innerHTML){ toast('Orijinal fotoğraf yok'); return; }
@@ -1745,7 +1747,7 @@ function wireVekTools(){
   $('#vekUndo').onclick=vekUndo;
   $('#vekRefBtn').onclick=vekToggleRef;
   const _rv=$('#vekRevek'); if(_rv) _rv.onclick=vekReVektorNow;
-  const _bd=$('#vekBold'); if(_bd) _bd.onclick=vekBold;
+  const _bd=$('#vekBold'); if(_bd) _bd.onmousedown=e=>{ e.preventDefault(); vekBold(); };
   $('#vekSave').onclick=saveVektorEdit;
   $('#vekClose').onclick=()=>{ if(confirm('Kaydetmeden çıkılsın mı?')) closeVektorEditor(); };
   vekSetMode('select');

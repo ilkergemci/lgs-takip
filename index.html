@@ -291,6 +291,7 @@
       <button id="vekDel" title="Seçiliyi sil">🗑 Sil</button>
       <button id="vekUndo" title="Geri al">↶</button>
       <button id="vekRefBtn" title="Orijinal fotoğrafı göster/gizle">🖼 Orijinal</button>
+      <button id="vekRevek" title="Fotoğraftan vektörü yeniden oluştur (yapay zeka)">⟳ Vektör oluştur</button>
       <span class="grow"></span>
       <button id="vekSave" class="save">Kaydet · Onayla</button>
       <button id="vekClose" title="Kapat">✕</button>
@@ -1652,6 +1653,21 @@ function vekAddImage(src){ if(!VEK||!src) return;
 function vekFileToImg(file){ if(!file||!/^image\//.test(file.type||'')){ toast('Resim dosyası seç'); return; }
   const rd=new FileReader(); rd.onerror=()=>toast('Resim okunamadı'); rd.onload=()=>vekAddImage(rd.result); rd.readAsDataURL(file); }
 function vekPickImage(){ const f=$('#vekImgFile'); if(f){ f.value=''; f.click(); } }
+async function vekReVektorNow(){
+  if(!VEK||!VEK.row){ return; }
+  const row=VEK.row, btn=$('#vekRevek');
+  if(!confirm('Fotoğraftan vektör yeniden oluşturulsun mu? Bu çizimdeki mevcut değişiklikler yeni vektörle değişir.')) return;
+  if(btn){ btn.disabled=true; btn.textContent='Oluşturuluyor…'; }
+  try{ await db.functions.invoke('vektorle',{body:{foto_id:row.id}}); }catch(_){ }
+  let durum=null, hata=null;
+  for(let i=0;i<12;i++){ await new Promise(s=>setTimeout(s,3000));
+    const {data}=await db.from('yanlis_foto').select('vektor_durum,vektor_hata').eq('id',row.id).single();
+    if(data){ durum=data.vektor_durum; hata=data.vektor_hata; if(durum==='hazir'||durum==='hata') break; }
+  }
+  if(btn){ btn.disabled=false; btn.textContent='⟳ Vektör oluştur'; }
+  if(durum==='hazir'){ toast('Vektör hazır ✓'); openVektorEditor(row.id, VEK._onClose); }
+  else toast(durum==='hata'?('Oluşturulamadı: '+(hata||'')):'Henüz hazır değil, biraz sonra tekrar dene');
+}
 function vekToggleRef(){ const r=$('#vekRef'); if(!r.innerHTML){ toast('Orijinal fotoğraf yok'); return; }
   const show=!r.classList.contains('show'); r.classList.toggle('show',show);
   requestAnimationFrame(()=>{ vekFit(); if(show) setupRefZoom(); });
@@ -1720,6 +1736,7 @@ function wireVekTools(){
   $('#vekDel').onclick=vekDel;
   $('#vekUndo').onclick=vekUndo;
   $('#vekRefBtn').onclick=vekToggleRef;
+  const _rv=$('#vekRevek'); if(_rv) _rv.onclick=vekReVektorNow;
   $('#vekSave').onclick=saveVektorEdit;
   $('#vekClose').onclick=()=>{ if(confirm('Kaydetmeden çıkılsın mı?')) closeVektorEditor(); };
   vekSetMode('select');

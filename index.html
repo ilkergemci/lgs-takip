@@ -436,7 +436,7 @@ async function renderOzet(){
       <div class="sk"></div><div class="sk"></div><div class="sk"></div></div>`;
   const [odevR, sonR, ykR] = await Promise.all([
     db.from('odevler').select('id,durum,teslim_tarihi,baslik,ders_id,kaynak,materyal').order('teslim_tarihi',{nullsFirst:false}),
-    db.from('sonuclar').select('id,dogru,yanlis,bos,net,cozum_tarihi,deneme_id,odev_id,ders_id,denemeler(ad,tarih)').order('cozum_tarihi',{ascending:false}).limit(60),
+    db.from('sonuclar').select('id,dogru,yanlis,bos,net,cozum_tarihi,deneme_id,odev_id,ders_id,materyal_test_id,denemeler(ad,tarih),materyal_testleri(id,unite,bolum,test_no,materyaller(ad))').order('cozum_tarihi',{ascending:false}).limit(60),
     db.from('yanlis_konular').select('konu_id,adet')
   ]);
   const odev=odevR.data||[], son=sonR.data||[], yk=ykR.data||[];
@@ -454,6 +454,8 @@ async function renderOzet(){
   const denMap={};
   son.filter(s=>s.deneme_id).forEach(s=>{ const d=denMap[s.deneme_id]=denMap[s.deneme_id]||{ad:s.denemeler?.ad||'Deneme',tarih:s.denemeler?.tarih,net:0}; d.net+=net(s.dogru,s.yanlis); });
   const dens=Object.values(denMap).sort((a,b)=>(b.tarih||'').localeCompare(a.tarih||'')).slice(0,5);
+  // son çözülen 10 test (deneme değil, kitap/ödev testi)
+  const sonTest=son.filter(s=>s.materyal_test_id && s.materyal_testleri).slice(0,10);
 
   el.innerHTML = `
     <div class="grid3" style="margin-top:16px">
@@ -486,6 +488,15 @@ async function renderOzet(){
           <div style="flex:1"><div class="t">${esc(d.ad)}</div><div class="d">${trDate(d.tarih)}</div></div>
           <div class="net-big" style="font-size:20px">${d.net.toFixed(2).replace('.',',')}<span class="tiny"> net</span></div>
         </div>`).join('') : `<div class="empty">Henüz deneme sonucu girilmedi.</div>`}
+    </div>
+
+    <h2 class="sec">Son çözülen testler</h2>
+    <div class="list">
+      ${sonTest.length? sonTest.map(s=>{ const t=s.materyal_testleri, kit=t&&t.materyaller?t.materyaller.ad:''; return `
+        <div class="item"><div class="dot" style="background:var(--ok)"></div>
+          <div style="flex:1;min-width:0"><div class="t">${esc(testLabel(t))}</div><div class="d">${kit?esc(kit)+' · ':''}${trDate(s.cozum_tarihi)}</div></div>
+          <div class="net-big" style="font-size:18px">${net(s.dogru,s.yanlis).toFixed(2).replace('.',',')}<span class="tiny"> net</span></div>
+        </div>`;}).join('') : `<div class="empty">Henüz test çözümü girilmedi.</div>`}
     </div>
 
     <h2 class="sec">Hızlı işlem</h2>

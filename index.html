@@ -1595,7 +1595,9 @@ function bindVekCanvas(c){
   c.on('mouse:wheel',opt=>{ const e=opt.e; e.preventDefault(); e.stopPropagation();
     let z=c.getZoom()*Math.pow(0.999,e.deltaY); z=Math.min(10,Math.max(0.1,z));
     c.zoomToPoint({x:e.offsetX,y:e.offsetY}, z); });
+  bindVekPinch(c);
   c.on('mouse:down',opt=>{
+    if(VEK._pinch) return;
     if(opt.e.button===1){ panning=true; lpx=opt.e.clientX; lpy=opt.e.clientY; c.setCursor('grabbing'); opt.e.preventDefault(); return; }
     if(VEK.mode==='select'||VEK.mode==='draw') return;
     const p=c.getPointer(opt.e); start=p;
@@ -1609,6 +1611,7 @@ function bindVekCanvas(c){
     if(draft) c.add(draft);
   });
   c.on('mouse:move',opt=>{
+    if(VEK._pinch) return;
     if(panning){ const e=opt.e; const vpt=c.viewportTransform; vpt[4]+=e.clientX-lpx; vpt[5]+=e.clientY-lpy; lpx=e.clientX; lpy=e.clientY; c.setViewportTransform(vpt); return; }
     if(!draft||!start) return; const p=c.getPointer(opt.e);
     if(VEK.mode==='rect') draft.set({left:Math.min(p.x,start.x),top:Math.min(p.y,start.y),width:Math.abs(p.x-start.x),height:Math.abs(p.y-start.y)});
@@ -1616,9 +1619,46 @@ function bindVekCanvas(c){
     else if(VEK.mode==='line') draft.set({x2:p.x,y2:p.y});
     c.requestRenderAll();
   });
-  c.on('mouse:up',()=>{ if(panning){ panning=false; c.setCursor('default'); return; } if(draft){ draft.setCoords(); draft=null; start=null; vekSetMode('select'); vekPush(); } });
+  c.on('mouse:up',()=>{ if(VEK._pinch) return; if(panning){ panning=false; c.setCursor('default'); return; } if(draft){ draft.setCoords(); draft=null; start=null; vekSetMode('select'); vekPush(); } });
   c.on('path:created',()=>vekPush());
   c.on('object:modified',()=>vekPush());
+}
+/* Telefonda iki parmakla yakınlaştır / kaydır */
+function bindVekPinch(c){
+  const el=c.upperCanvasEl; if(!el) return;
+  el.style.touchAction='none';
+  let lastDist=0, lastMid=null, prevDraw=false, prevSel=false;
+  const dist=(a,b)=>Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+  const mid=(a,b)=>{ const r=el.getBoundingClientRect(); return {x:(a.clientX+b.clientX)/2-r.left, y:(a.clientY+b.clientY)/2-r.top}; };
+  el.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){
+      VEK._pinch=true;
+      prevDraw=c.isDrawingMode; prevSel=c.selection;
+      c.isDrawingMode=false; c.selection=false; c.discardActiveObject(); c.requestRenderAll();
+      lastDist=dist(e.touches[0],e.touches[1]); lastMid=mid(e.touches[0],e.touches[1]);
+      e.preventDefault();
+    }
+  },{passive:false});
+  el.addEventListener('touchmove',e=>{
+    if(VEK._pinch && e.touches.length>=2){
+      e.preventDefault();
+      const d=dist(e.touches[0],e.touches[1]), m=mid(e.touches[0],e.touches[1]);
+      if(lastDist>0){
+        let z=c.getZoom()*(d/lastDist); z=Math.min(10,Math.max(0.1,z));
+        c.zoomToPoint({x:m.x,y:m.y}, z);
+        const vpt=c.viewportTransform; vpt[4]+=m.x-lastMid.x; vpt[5]+=m.y-lastMid.y; c.setViewportTransform(vpt);
+      }
+      lastDist=d; lastMid=m;
+    }
+  },{passive:false});
+  const end=e=>{
+    if(VEK._pinch && e.touches.length<2){
+      VEK._pinch=false; lastDist=0; lastMid=null;
+      c.isDrawingMode=prevDraw; c.selection=prevSel;
+    }
+  };
+  el.addEventListener('touchend',end);
+  el.addEventListener('touchcancel',end);
 }
 function vekSetMode(m){
   if(!VEK) return; VEK.mode=m; const c=VEK.canvas;

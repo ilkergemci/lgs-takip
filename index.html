@@ -1538,7 +1538,10 @@ async function openVektorEditor(fotoId,onClose){
   const ref=$('#vekRef'); ref.classList.remove('show'); const refSrc=row.foto_url||row.temiz_url;
   ref.innerHTML = refSrc?`<img src="${esc(refSrc)}" alt="orijinal"><button class="ref-rot" id="vekRot" title="Orijinali döndür">⟳</button><span class="refhint">Tekerlek: yakınlaştır · sürükle: kaydır · ⟳ döndür</span>`:'';
   let W=900,H=600,OX=0,OY=0, svg=null;
-  if(row.vektor_url){ try{ svg=await fetch(row.vektor_url.split('?')[0]+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.text()); }catch(_){ } }
+  if(row.vektor_url){ try{
+    if(/^data:/i.test(row.vektor_url)){ const b64=row.vektor_url.split(',')[1]||''; svg=decodeURIComponent(escape(atob(b64))); }
+    else { svg=await fetch(row.vektor_url.split('?')[0]+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.text()); }
+  }catch(_){ } }
   if(svg){ const vb=(svg.match(/viewBox="([-\d.\s]+)"/)||[])[1]; if(vb){ const p=vb.trim().split(/\s+/).map(Number); if(p.length===4&&p[2]>0&&p[3]>0){ W=p[2]; H=p[3]; OX=p[0]||0; OY=p[1]||0; } } }
   // Kayıpsız düzenleme için fabric JSON (varsa) — SVG tur-döngüsü metni/üssü bozuyor
   const jsonPath = row.vektor_path ? row.vektor_path.replace(/\.svg$/,'.json') : `${row.materyal_test_id}/${row.id}_vektor.json`;

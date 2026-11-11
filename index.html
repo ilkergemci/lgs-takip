@@ -1541,6 +1541,18 @@ function ensureFabric(){
   return _fabricP;
 }
 let VEK=null;
+// fabric.js baseline-shift (üs/alt simge) desteklemez → yüklemeden önce Unicode üst/alt simgeye çevir
+const _SUP={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','−':'⁻','=':'⁼','(':'⁽',')':'⁾','n':'ⁿ','x':'ˣ','i':'ⁱ','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','k':'ᵏ','m':'ᵐ','y':'ʸ',' ':''};
+const _SUB={'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎','n':'ₙ','x':'ₓ','a':'ₐ','e':'ₑ',' ':''};
+function _mapScript(s,tbl){ return [...s.replace(/<[^>]*>/g,'').trim()].map(ch=>tbl[ch]!==undefined?tbl[ch]:ch).join(''); }
+function fixScriptsForFabric(svg){
+  return svg.replace(/<tspan\b([^>]*)>([\s\S]*?)<\/tspan>/gi,(m,attrs,inner)=>{
+    const a=attrs.toLowerCase();
+    if(/baseline-shift/.test(a)&&/super/.test(a)) return _mapScript(inner,_SUP);
+    if(/baseline-shift/.test(a)&&/sub/.test(a))   return _mapScript(inner,_SUB);
+    return m;
+  });
+}
 async function openVektorEditor(fotoId,onClose){
   try{ await ensureFabric(); }catch(e){ toast('Editör yüklenemedi (internet?)'); return; }
   const {data:row,error}=await db.from('yanlis_foto')
@@ -1570,11 +1582,11 @@ async function openVektorEditor(fotoId,onClose){
     canvas.loadFromJSON(fjson,()=>{ canvas.forEachObject(o=>{ o.selectable=true; o.evented=true; }); canvas.requestRenderAll(); VEK._loading=false; vekPush(); vekFit(); });
   } else if(svg){
     VEK._loading=true;
-    // fabric.js <pattern>/gradient dolgularını (fill="url(#..)") çözemez → kareleri siyah yapar.
-    // Yüklemeden önce bu dolguları düz açık renge çevir (tarayıcı önizlemesi orijinali kullanır).
-    const svgFab = svg
+    // fabric.js <pattern>/gradient dolgularını (fill="url(#..)") çözemez → kareleri siyah yapar;
+    // baseline-shift üslerini de yok sayar. Yüklemeden önce dolguyu düz renge, üsleri Unicode'a çevir.
+    const svgFab = fixScriptsForFabric(svg
       .replace(/fill\s*=\s*(["'])\s*url\(#[^)]*\)\s*\1/gi,'fill="#d7ebe1"')
-      .replace(/fill\s*:\s*url\(#[^)]*\)/gi,'fill:#d7ebe1');
+      .replace(/fill\s*:\s*url\(#[^)]*\)/gi,'fill:#d7ebe1'));
     fabric.loadSVGFromString(svgFab,(objs)=>{
       let pending=objs.length||0; if(!pending){ VEK._loading=false; vekPush(); }
       const done=()=>{ if(--pending<=0){ canvas.requestRenderAll(); VEK._loading=false; vekPush(); vekFit(); } };

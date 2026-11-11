@@ -1570,7 +1570,12 @@ async function openVektorEditor(fotoId,onClose){
     canvas.loadFromJSON(fjson,()=>{ canvas.forEachObject(o=>{ o.selectable=true; o.evented=true; }); canvas.requestRenderAll(); VEK._loading=false; vekPush(); vekFit(); });
   } else if(svg){
     VEK._loading=true;
-    fabric.loadSVGFromString(svg,(objs)=>{
+    // fabric.js <pattern>/gradient dolgularını (fill="url(#..)") çözemez → kareleri siyah yapar.
+    // Yüklemeden önce bu dolguları düz açık renge çevir (tarayıcı önizlemesi orijinali kullanır).
+    const svgFab = svg
+      .replace(/fill\s*=\s*(["'])\s*url\(#[^)]*\)\s*\1/gi,'fill="#d7ebe1"')
+      .replace(/fill\s*:\s*url\(#[^)]*\)/gi,'fill:#d7ebe1');
+    fabric.loadSVGFromString(svgFab,(objs)=>{
       let pending=objs.length||0; if(!pending){ VEK._loading=false; vekPush(); }
       const done=()=>{ if(--pending<=0){ canvas.requestRenderAll(); VEK._loading=false; vekPush(); vekFit(); } };
       objs.forEach(o=>{

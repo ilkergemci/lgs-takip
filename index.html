@@ -1603,8 +1603,10 @@ async function openVektorEditor(fotoId,onClose){
 function vekFit(){
   if(!VEK) return; const stage=$('#vekStage'); const sw=Math.max(200,stage.clientWidth), sh=Math.max(200,stage.clientHeight);
   const c=VEK.canvas; c.setWidth(sw); c.setHeight(sh);
-  const bb=vekContentBox(c,VEK.W,VEK.H); // tüm içeriği (taşanlar dahil) sığdır
-  const z=Math.min(sw/bb.w, sh/bb.h)*0.96;
+  let bb=vekContentBox(c,VEK.W,VEK.H); // tüm içeriği (taşanlar dahil) sığdır
+  if(!(bb.w>0&&bb.h>0&&isFinite(bb.x)&&isFinite(bb.y))) bb={x:0,y:0,w:VEK.W,h:VEK.H};
+  let z=Math.min(sw/bb.w, sh/bb.h)*0.96;
+  if(!(isFinite(z)&&z>0)) z=Math.min(sw/VEK.W, sh/VEK.H)*0.96;
   c.setViewportTransform([z,0,0,z,(sw-bb.w*z)/2-bb.x*z,(sh-bb.h*z)/2-bb.y*z]); c.requestRenderAll();
 }
 function bindVekCanvas(c){
@@ -1778,8 +1780,13 @@ function vekContentBox(c,W,H){
   // Orijinal çerçeveyi (0,0,W,H) her zaman kapsa, taşan nesneleri de ekle — kayıtta kırpılma olmasın
   let minX=0,minY=0,maxX=W,maxY=H;
   (c.getObjects()||[]).forEach(o=>{ let b; try{ b=o.getBoundingRect(true,true); }catch(_){ return; }
-    if(!b) return; minX=Math.min(minX,b.left); minY=Math.min(minY,b.top); maxX=Math.max(maxX,b.left+b.width); maxY=Math.max(maxY,b.top+b.height); });
+    if(!b) return;
+    // bozuk nesne (ör. yarıçapı olmayan daire) NaN kutu verir → tüm fit'i bozmaması için atla
+    if(!isFinite(b.left)||!isFinite(b.top)||!isFinite(b.width)||!isFinite(b.height)) return;
+    minX=Math.min(minX,b.left); minY=Math.min(minY,b.top); maxX=Math.max(maxX,b.left+b.width); maxY=Math.max(maxY,b.top+b.height); });
   const pad=6;
+  // son bir güvenlik: herhangi bir değer NaN/Infinity olduysa taban çerçeveye dön
+  if(!(isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY)&&maxX>minX&&maxY>minY)){ minX=0; minY=0; maxX=W; maxY=H; }
   return {x:Math.floor(minX-pad),y:Math.floor(minY-pad),w:Math.ceil(maxX-minX+2*pad),h:Math.ceil(maxY-minY+2*pad)};
 }
 async function saveVektorEdit(){

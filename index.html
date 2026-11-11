@@ -1584,7 +1584,10 @@ async function openVektorEditor(fotoId,onClose){
     VEK._loading=true;
     // fabric.js <pattern>/gradient dolgularını (fill="url(#..)") çözemez → kareleri siyah yapar;
     // baseline-shift üslerini de yok sayar. Yüklemeden önce dolguyu düz renge, üsleri Unicode'a çevir.
+    // fabric 5.x <image> kaynağını yalnız xlink:href ile okur; düz href'i ona çevir (hibrit vektörlerdeki kırpık görseller için)
     const svgFab = fixScriptsForFabric(svg
+      .replace(/\sxlink:href\s*=/gi,' href=')
+      .replace(/<image\b([^>]*?)\shref\s*=\s*(["'])(data:)/gi,'<image$1 xlink:href=$2$3')
       .replace(/fill\s*=\s*(["'])\s*url\(#[^)]*\)\s*\1/gi,'fill="#d7ebe1"')
       .replace(/fill\s*:\s*url\(#[^)]*\)/gi,'fill:#d7ebe1'));
     fabric.loadSVGFromString(svgFab,(objs)=>{

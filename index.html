@@ -402,7 +402,7 @@ async function loadCatalog(){
 const dersAd = id => (S.dersler.find(d=>d.id==id)||{}).ad || "—";
 
 async function testsOf(materyalId){
-  const {data,error}=await db.from('materyal_testleri').select('id,unite,bolum,tip,test_no,konu_id,soru_sayisi,ders_id').eq('materyal_id',materyalId).order('test_no');
+  const {data,error}=await db.from('materyal_testleri').select('id,unite,bolum,tip,test_no,konu_id,soru_sayisi,ders_id,sayfa').eq('materyal_id',materyalId).order('test_no');
   if(error){toast('Testler yüklenemedi');return[];}
   (data||[]).sort((a,b)=>testLabel(a).localeCompare(testLabel(b),'tr',{numeric:true,sensitivity:'base'})); // harf sırası (sayılar doğru)
   return data;
@@ -413,7 +413,7 @@ function testLabel(t){
   return s || ('Test #'+t.id);
 }
 function soruStr(n){ return (n!=null && +n>0)? (+n)+' soru' : ''; }
-function testOpt(t){ const q=soruStr(t.soru_sayisi); return esc(testLabel(t))+(q?' ('+q+')':''); }
+function testOpt(t){ const q=soruStr(t.soru_sayisi); const sf=(t.sayfa!=null&&+t.sayfa>0)?(' · s.'+t.sayfa):''; return esc(testLabel(t))+sf+(q?' ('+q+')':''); }
 
 /* ---------- VIEWS ---------- */
 const TITLES={ozet:['Özet','Genel durum'],kitap:['Kitaplar','Kitap bazında ilerleme'],deneme:['Denemeler','Deneme bazında ilerleme'],odev:['Ödevler','Okul & dershane ödevleri'],sonuc:['Sonuç Gir','Test & deneme sonuçları'],analiz:['Analiz','Konu bazında zayıflık'],tekrar:['Tekrar','Yanlış soruları yeniden çöz']};

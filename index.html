@@ -239,6 +239,7 @@
 <main class="wrap hidden" id="app">
   <section id="view-ozet"></section>
   <section id="view-kitap" class="hidden"></section>
+  <section id="view-deneme" class="hidden"></section>
   <section id="view-odev" class="hidden"></section>
   <section id="view-sonuc" class="hidden"></section>
   <section id="view-analiz" class="hidden"></section>
@@ -253,6 +254,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>Özet</button>
     <button class="tab" data-v="kitap">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7v16H4zM13 4h7v16h-7z"/></svg>Kitaplar</button>
+    <button class="tab" data-v="deneme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6l1 2h3v16H5V5h3zM9 11h6M9 15h6"/></svg>Denemeler</button>
     <button class="tab" data-v="odev">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Ödevler</button>
     <button class="tab" data-v="sonuc">
@@ -413,16 +416,17 @@ function soruStr(n){ return (n!=null && +n>0)? (+n)+' soru' : ''; }
 function testOpt(t){ const q=soruStr(t.soru_sayisi); return esc(testLabel(t))+(q?' ('+q+')':''); }
 
 /* ---------- VIEWS ---------- */
-const TITLES={ozet:['Özet','Genel durum'],kitap:['Kitaplar','Kitap bazında ilerleme'],odev:['Ödevler','Okul & dershane ödevleri'],sonuc:['Sonuç Gir','Test & deneme sonuçları'],analiz:['Analiz','Konu bazında zayıflık'],tekrar:['Tekrar','Yanlış soruları yeniden çöz']};
+const TITLES={ozet:['Özet','Genel durum'],kitap:['Kitaplar','Kitap bazında ilerleme'],deneme:['Denemeler','Deneme bazında ilerleme'],odev:['Ödevler','Okul & dershane ödevleri'],sonuc:['Sonuç Gir','Test & deneme sonuçları'],analiz:['Analiz','Konu bazında zayıflık'],tekrar:['Tekrar','Yanlış soruları yeniden çöz']};
 function setView(v){
   S.view=v;
   $$('#nav .tab').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
-  ['ozet','kitap','odev','sonuc','analiz','tekrar'].forEach(x=>$('#view-'+x).classList.toggle('hidden',x!==v));
+  ['ozet','kitap','deneme','odev','sonuc','analiz','tekrar'].forEach(x=>$('#view-'+x).classList.toggle('hidden',x!==v));
   $('#viewTitle').textContent=TITLES[v][0]; $('#viewSub').textContent=TITLES[v][1];
   $('#fab').classList.toggle('hidden', v!=='ozet' && v!=='odev');
   window.scrollTo(0,0);
   if(v==='ozet') renderOzet();
   if(v==='kitap') renderKitap();
+  if(v==='deneme') renderDeneme();
   if(v==='odev') renderOdev();
   if(v==='sonuc') renderSonuc();
   if(v==='analiz') renderAnaliz();
@@ -974,7 +978,7 @@ async function saveKitapResult(ctx){
   await syncOdevDurum(ctx.test.id); // bu testi içeren ödevlerin tümü çözüldüyse yapıldı işaretle
   $('#k_save').disabled=false;
   closeSheet(); toast(`Kaydedildi · net ${fnet(d,y)}`);
-  if(solveReturn && solveReturn.view==='kitap'){ kitapExpand=solveReturn.mid; kitapScrollTid=solveReturn.tid||null; solveReturn=null; setView('kitap'); }
+  if(solveReturn && (solveReturn.view==='kitap'||solveReturn.view==='deneme')){ const rv=solveReturn.view; kitapExpand=solveReturn.mid; kitapScrollTid=solveReturn.tid||null; solveReturn=null; setView(rv); }
   else setView('ozet');
 }
 
@@ -1043,6 +1047,49 @@ async function saveDeneme(){
 
 /* ----- KİTAPLAR ----- */
 let kitapDers='';
+let denemeDers='';
+async function renderDeneme(){
+  const el=$('#view-deneme');
+  const dersOpts=`<option value="">Tüm dersler</option>`+S.dersler.map(d=>`<option value="${d.id}" ${denemeDers==d.id?'selected':''}>${esc(d.ad)}</option>`).join('');
+  el.innerHTML=`<label class="fld" style="margin-top:16px"><span class="lab">Ders</span><select id="dn_ders">${dersOpts}</select></label>
+    <div id="dn_body" style="margin-top:14px"><div class="sk"></div><div class="sk"></div></div>`;
+  $('#dn_ders').onchange=()=>{denemeDers=$('#dn_ders').value;renderDeneme();};
+  let q=db.from('kitap_ilerleme').select('*');
+  if(denemeDers) q=q.eq('ders_id',denemeDers);
+  const {data,error}=await q;
+  const body=$('#dn_body');
+  if(error){body.innerHTML=`<div class="empty">Yüklenemedi: ${esc(error.message)}</div>`;return;}
+  const rows=(data||[]).filter(r=>(r.tur||'')==='Deneme').sort((a,b)=> (a.ders_id-b.ders_id) || a.ad.localeCompare(b.ad,'tr'));
+  if(!rows.length){body.innerHTML=`<div class="empty">Deneme bulunamadı.</div>`;return;}
+  let tTop=0,tYap=0; rows.forEach(r=>{tTop+=r.toplam;tYap+=r.yapilan;});
+  let html=`<div class="stat" style="margin-bottom:14px"><div class="n">${tYap}<span style="font-size:15px;color:var(--ink-3)"> / ${tTop}</span></div><div class="l">Yapılan deneme (seçili kapsam)</div></div>`;
+  let curDers=null;
+  rows.forEach(r=>{
+    if(r.ders_id!==curDers){ curDers=r.ders_id; html+=`<h2 class="sec">${esc(dersAd(r.ders_id))}</h2>`; }
+    const pct=r.toplam? Math.round(r.yapilan/r.toplam*100):0;
+    html+=`<div class="card" style="padding:0;margin-bottom:10px">
+      <button class="kitap-head" data-m="${r.materyal_id}" style="width:100%;text-align:left;border:none;background:transparent;padding:14px;cursor:pointer;color:inherit;font:inherit">
+        <div class="row" style="justify-content:space-between;gap:10px;align-items:flex-start">
+          <div style="min-width:0;flex:1"><div style="font-weight:680;font-size:14.5px">${esc(r.ad)}</div><div style="font-size:12px;color:var(--ink-3);margin-top:1px">${esc(r.yayin||'')}${r.soru_toplam>0?' · '+r.soru_toplam+' soru':''}</div></div>
+          <span class="chip ${pct>=100?'ok':(pct>0?'brand':'')}">${r.yapilan}/${r.toplam} · %${pct}</span>
+        </div>
+        <div class="bar" style="margin-top:9px"><i style="width:${pct}%"></i></div>
+      </button>
+      <div class="kitap-tests hidden" id="ktt_${r.materyal_id}" style="padding:0 12px 12px"></div>
+    </div>`;
+  });
+  body.innerHTML=html;
+  body.querySelectorAll('.kitap-head').forEach(b=>b.onclick=()=>toggleKitapTests(b.dataset.m));
+  if(kitapExpand){ const m=kitapExpand; const tid=kitapScrollTid; kitapExpand=null; kitapScrollTid=null;
+    const head=body.querySelector('.kitap-head[data-m="'+m+'"]');
+    if(head){ await toggleKitapTests(m);
+      const box=$('#ktt_'+m);
+      const target= (tid!=null && box) ? box.querySelector('.kline[data-tid="'+tid+'"]') : null;
+      if(target){ target.scrollIntoView({block:'start',behavior:'smooth'}); target.classList.add('kline-flash'); setTimeout(()=>target.classList.remove('kline-flash'),1800); }
+      else head.scrollIntoView({block:'center'});
+    }
+  }
+}
 let solveReturn=null, kitapExpand=null, kitapScrollTid=null;
 async function renderKitap(){
   const el=$('#view-kitap');
@@ -1055,7 +1102,7 @@ async function renderKitap(){
   const {data,error}=await q;
   const body=$('#kt_body');
   if(error){body.innerHTML=`<div class="empty">Yüklenemedi: ${esc(error.message)}</div>`;return;}
-  const rows=(data||[]).sort((a,b)=> (a.ders_id-b.ders_id) || a.ad.localeCompare(b.ad,'tr'));
+  const rows=(data||[]).filter(r=>(r.tur||'')!=='Deneme').sort((a,b)=> (a.ders_id-b.ders_id) || a.ad.localeCompare(b.ad,'tr'));
   if(!rows.length){body.innerHTML=`<div class="empty">Kitap bulunamadı.</div>`;return;}
   // ders özet (toplam ilerleme)
   let tTop=0,tYap=0; rows.forEach(r=>{tTop+=r.toplam;tYap+=r.yapilan;});
@@ -1108,7 +1155,7 @@ async function toggleKitapTests(mid){
   box.querySelector('.konu-pick').onclick=e=>{ const row=e.target.closest('.kline'); if(!row)return; const t=ts.find(x=>x.id==row.dataset.tid); if(t) openKitapTest(t, mat.ders_id, mat.ad, mid); };
 }
 function openKitapTest(test, dersId, matName, mid){
-  solveReturn={view:'kitap', mid: mid||test.materyal_id||null, tid: test.id};
+  solveReturn={view: (S.view==='deneme'?'deneme':'kitap'), mid: mid||test.materyal_id||null, tid: test.id};
   const sd=$('#view-sonuc #k_dyn'); if(sd) sd.innerHTML=''; // Sonuç sekmesiyle ID çakışmasını önle
   sheet(`<h3>${esc(testLabel(test))}</h3><p class="hint">${esc(matName||'')}</p><div id="kt_dyn"></div>`);
   buildKitapEntry(test, dersId, $('#kt_dyn'));

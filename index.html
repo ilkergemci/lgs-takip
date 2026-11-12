@@ -969,7 +969,7 @@ async function saveKitapResult(ctx){
   let fotos=[];
   if(ctx.hasCA){ try{ fotos=await uploadPhotos(ctx); }catch(e){ toast('Fotoğraf yüklenemedi, tekrar dene'); $('#k_save').disabled=false; return; } }
   // 1) kitaptan çözüm = sadece SONUÇ kaydı (ödev oluşturma); ödev bağlantısı yok
-  const sonuc={ odev_id:null, ders_id:ctx.dersId, materyal_test_id:ctx.test.id, dogru:d, yanlis:y, bos:b, cozum_tarihi:$('#k_date').value||todayISO() };
+  const sonuc={ odev_id:null, ders_id:ctx.dersId, materyal_test_id:ctx.test.id, dogru:d, yanlis:y, bos:b, cozum_tarihi:$('#k_date').value||todayISO(), giren_rol:S.role||null };
   const sRes=await db.from('sonuclar').insert(sonuc).select('id').single();
   if(sRes.error){toast('Hata: '+sRes.error.message);$('#k_save').disabled=false;return;}
   const yk=Object.entries(konu).map(([konu_id,adet])=>({sonuc_id:sRes.data.id,konu_id:+konu_id,adet}));
@@ -1037,7 +1037,7 @@ async function saveDeneme(){
   if(dRes.error){toast('Hata: '+dRes.error.message);$('#d_save').disabled=false;return;}
   const denId=dRes.data.id; const ctx=window._denemeCtx;
   for(const r of rows){
-    const sRes=await db.from('sonuclar').insert({deneme_id:denId,ders_id:r.id,dogru:r.d,yanlis:r.y,bos:r.b,cozum_tarihi:$('#d_tarih').value||todayISO()}).select('id').single();
+    const sRes=await db.from('sonuclar').insert({deneme_id:denId,ders_id:r.id,dogru:r.d,yanlis:r.y,bos:r.b,cozum_tarihi:$('#d_tarih').value||todayISO(),giren_rol:S.role||null}).select('id').single();
     if(sRes.error){continue;}
     const km=ctx.rows[r.id]||{}; const yk=Object.entries(km).map(([konu_id,adet])=>({sonuc_id:sRes.data.id,konu_id:+konu_id,adet}));
     if(yk.length) await db.from('yanlis_konular').insert(yk);
@@ -1447,7 +1447,7 @@ async function saveFromOdev(ctx){
   $('#k_save').disabled=true;
   let fotos=[];
   if(ctx.hasCA){ try{ fotos=await uploadPhotos(ctx); }catch(e){ toast('Fotoğraf yüklenemedi, tekrar dene'); $('#k_save').disabled=false; return; } }
-  const sRes=await db.from('sonuclar').insert({odev_id:ctx._odev.id,ders_id:ctx.dersId,materyal_test_id:ctx.test.id,dogru:d,yanlis:y,bos:b,cozum_tarihi:$('#k_date').value||todayISO()}).select('id').single();
+  const sRes=await db.from('sonuclar').insert({odev_id:ctx._odev.id,ders_id:ctx.dersId,materyal_test_id:ctx.test.id,dogru:d,yanlis:y,bos:b,cozum_tarihi:$('#k_date').value||todayISO(),giren_rol:S.role||null}).select('id').single();
   if(!sRes.error){ const konu=ctx.hasMSK?(ctx.autoKonu||{}):(ctx.manualKonu||{}); const yk=Object.entries(konu).map(([k,a])=>({sonuc_id:sRes.data.id,konu_id:+k,adet:a})); if(yk.length)await db.from('yanlis_konular').insert(yk);
     if(fotos.length){ const rows=fotos.map(f=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:f.soru_no,tip:f.tip,secilen:(ctx.answers&&ctx.answers[f.soru_no])||null,foto_path:f.foto_path,foto_url:f.foto_url,temiz_path:f.temiz_path,temiz_url:f.temiz_url})); const r=await db.from('yanlis_foto').insert(rows).select('id'); if(r.error)toast('Fotoğraf kaydı yazılamadı'); else vektorleBaslat(r.data); } }
   // Otomatik tescil: ödeve bağlı TÜM testler çözüldüyse ödevi "yapıldı" yap

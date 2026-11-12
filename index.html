@@ -390,7 +390,7 @@ async function loadCatalog(){
   const [dr, ko, ma] = await Promise.all([
     db.from('dersler').select('*').order('sira'),
     db.from('konular').select('id,ders_id,ad,unite,sira').order('sira'),
-    db.from('materyaller').select('id,ad,yayin,ders_id,tur').order('ad')
+    db.from('materyaller').select('id,ad,yayin,ders_id,tur,notlar').order('ad')
   ]);
   if(dr.error||ko.error||ma.error){ throw (dr.error||ko.error||ma.error); }
   S.dersler = dr.data;
@@ -402,7 +402,7 @@ async function loadCatalog(){
 const dersAd = id => (S.dersler.find(d=>d.id==id)||{}).ad || "—";
 
 async function testsOf(materyalId){
-  const {data,error}=await db.from('materyal_testleri').select('id,unite,bolum,tip,test_no,konu_id,soru_sayisi').eq('materyal_id',materyalId).order('test_no');
+  const {data,error}=await db.from('materyal_testleri').select('id,unite,bolum,tip,test_no,konu_id,soru_sayisi,ders_id').eq('materyal_id',materyalId).order('test_no');
   if(error){toast('Testler yüklenemedi');return[];}
   (data||[]).sort((a,b)=>testLabel(a).localeCompare(testLabel(b),'tr',{numeric:true,sensitivity:'base'})); // harf sırası (sayılar doğru)
   return data;
@@ -1047,33 +1047,27 @@ async function saveDeneme(){
 
 /* ----- KİTAPLAR ----- */
 let kitapDers='';
-let denemeDers='';
 async function renderDeneme(){
   const el=$('#view-deneme');
-  const dersOpts=`<option value="">Tüm dersler</option>`+S.dersler.map(d=>`<option value="${d.id}" ${denemeDers==d.id?'selected':''}>${esc(d.ad)}</option>`).join('');
-  el.innerHTML=`<label class="fld" style="margin-top:16px"><span class="lab">Ders</span><select id="dn_ders">${dersOpts}</select></label>
-    <div id="dn_body" style="margin-top:14px"><div class="sk"></div><div class="sk"></div></div>`;
-  $('#dn_ders').onchange=()=>{denemeDers=$('#dn_ders').value;renderDeneme();};
-  let q=db.from('kitap_ilerleme').select('*');
-  if(denemeDers) q=q.eq('ders_id',denemeDers);
-  const {data,error}=await q;
+  el.innerHTML=`<div id="dn_body" style="margin-top:16px"><div class="sk"></div><div class="sk"></div></div>`;
+  const {data,error}=await db.from('kitap_ilerleme').select('*');
   const body=$('#dn_body');
   if(error){body.innerHTML=`<div class="empty">Yüklenemedi: ${esc(error.message)}</div>`;return;}
-  const rows=(data||[]).filter(r=>(r.tur||'')==='Deneme').sort((a,b)=> (a.ders_id-b.ders_id) || a.ad.localeCompare(b.ad,'tr'));
-  if(!rows.length){body.innerHTML=`<div class="empty">Deneme bulunamadı.</div>`;return;}
-  let tTop=0,tYap=0; rows.forEach(r=>{tTop+=r.toplam;tYap+=r.yapilan;});
-  let html=`<div class="stat" style="margin-bottom:14px"><div class="n">${tYap}<span style="font-size:15px;color:var(--ink-3)"> / ${tTop}</span></div><div class="l">Yapılan deneme (seçili kapsam)</div></div>`;
-  let curDers=null;
+  const parseD=s=>{ const mm=String(s||'').match(/(\d{2})\.(\d{2})\.(\d{4})/); return mm?`${mm[3]}-${mm[2]}-${mm[1]}`:''; };
+  let rows=(data||[]).filter(r=>(r.tur||'')==='Deneme Sınavı').map(r=>{ const mm=S.matById[r.materyal_id]||{}; return {...r, notlar:mm.notlar||'', _d:parseD(mm.notlar)}; });
+  rows.sort((a,b)=> (b._d||'').localeCompare(a._d||'') || (b.materyal_id-a.materyal_id));
+  if(!rows.length){body.innerHTML=`<div class="empty">Henüz deneme yok. Sonuç → Deneme gir'den eklenebilir.</div>`;return;}
+  let html='';
   rows.forEach(r=>{
-    if(r.ders_id!==curDers){ curDers=r.ders_id; html+=`<h2 class="sec">${esc(dersAd(r.ders_id))}</h2>`; }
     const pct=r.toplam? Math.round(r.yapilan/r.toplam*100):0;
-    html+=`<div class="card" style="padding:0;margin-bottom:10px">
+    html+=`<div class="card" style="padding:0;margin-bottom:12px">
       <button class="kitap-head" data-m="${r.materyal_id}" style="width:100%;text-align:left;border:none;background:transparent;padding:14px;cursor:pointer;color:inherit;font:inherit">
-        <div class="row" style="justify-content:space-between;gap:10px;align-items:flex-start">
-          <div style="min-width:0;flex:1"><div style="font-weight:680;font-size:14.5px">${esc(r.ad)}</div><div style="font-size:12px;color:var(--ink-3);margin-top:1px">${esc(r.yayin||'')}${r.soru_toplam>0?' · '+r.soru_toplam+' soru':''}</div></div>
-          <span class="chip ${pct>=100?'ok':(pct>0?'brand':'')}">${r.yapilan}/${r.toplam} · %${pct}</span>
+        <div style="font-weight:720;font-size:15px">${esc(r.ad)}</div>
+        ${r.notlar?`<div style="font-size:12.5px;color:var(--ink-2);margin-top:4px;line-height:1.5">${esc(r.notlar)}</div>`:''}
+        <div class="row" style="justify-content:space-between;gap:10px;align-items:center;margin-top:10px">
+          <span style="font-size:12px;color:var(--ink-3)">${r.yapilan}/${r.toplam} ders${r.soru_toplam>0?' · '+r.soru_toplam+' soru':''}</span>
+          <span class="chip ${pct>=100?'ok':(pct>0?'brand':'')}">%${pct} ›</span>
         </div>
-        <div class="bar" style="margin-top:9px"><i style="width:${pct}%"></i></div>
       </button>
       <div class="kitap-tests hidden" id="ktt_${r.materyal_id}" style="padding:0 12px 12px"></div>
     </div>`;
@@ -1102,7 +1096,7 @@ async function renderKitap(){
   const {data,error}=await q;
   const body=$('#kt_body');
   if(error){body.innerHTML=`<div class="empty">Yüklenemedi: ${esc(error.message)}</div>`;return;}
-  const rows=(data||[]).filter(r=>(r.tur||'')!=='Deneme').sort((a,b)=> (a.ders_id-b.ders_id) || a.ad.localeCompare(b.ad,'tr'));
+  const rows=(data||[]).filter(r=>(r.tur||'')!=='Deneme Sınavı').sort((a,b)=> (a.ders_id-b.ders_id) || a.ad.localeCompare(b.ad,'tr'));
   if(!rows.length){body.innerHTML=`<div class="empty">Kitap bulunamadı.</div>`;return;}
   // ders özet (toplam ilerleme)
   let tTop=0,tYap=0; rows.forEach(r=>{tTop+=r.toplam;tYap+=r.yapilan;});
@@ -1148,11 +1142,14 @@ async function toggleKitapTests(mid){
   }
   if(!ts.length){box.innerHTML='<div class="tiny muted" style="padding:6px">Bu kitapta test kaydı yok.</div>';return;}
   const mat=S.matById[mid]||{};
+  const isDen=(mat.tur==='Deneme Sınavı');
+  if(isDen) ts.sort((a,b)=>(a.ders_id||99)-(b.ders_id||99));
   box.innerHTML=`<div class="konu-pick" style="max-height:320px">${ts.map(t=>{
     const dn=done[t.id]; const n=cnt[t.id]||0; const q=soruStr(t.soru_sayisi);
-    return `<div class="kline" data-tid="${t.id}" style="cursor:pointer"><span class="kn" style="font-size:13px">${esc(testLabel(t))}${q?` <span style="color:var(--ink-3);font-weight:500">· ${q}</span>`:''} <span style="color:var(--ink-3)">›</span></span>${dn?`<span class="chip ok" style="font-size:11px">✓ net ${fnet(dn.d,dn.y)}${n>1?` · ${n}×`:''}</span>`:`<span class="chip" style="font-size:11px">yapılmadı</span>`}</div>`;
+    const lbl=isDen? esc(dersAd(t.ders_id)||t.unite||'Ders') : esc(testLabel(t));
+    return `<div class="kline" data-tid="${t.id}" style="cursor:pointer"><span class="kn" style="font-size:13px">${lbl}${q?` <span style="color:var(--ink-3);font-weight:500">· ${q}</span>`:''} <span style="color:var(--ink-3)">›</span></span>${dn?`<span class="chip ok" style="font-size:11px">✓ net ${fnet(dn.d,dn.y)}${n>1?` · ${n}×`:''}</span>`:`<span class="chip" style="font-size:11px">yapılmadı</span>`}</div>`;
   }).join('')}</div>`;
-  box.querySelector('.konu-pick').onclick=e=>{ const row=e.target.closest('.kline'); if(!row)return; const t=ts.find(x=>x.id==row.dataset.tid); if(t) openKitapTest(t, mat.ders_id, mat.ad, mid); };
+  box.querySelector('.konu-pick').onclick=e=>{ const row=e.target.closest('.kline'); if(!row)return; const t=ts.find(x=>x.id==row.dataset.tid); if(t) openKitapTest(t, (t.ders_id||mat.ders_id), mat.ad, mid); };
 }
 function openKitapTest(test, dersId, matName, mid){
   solveReturn={view: (S.view==='deneme'?'deneme':'kitap'), mid: mid||test.materyal_id||null, tid: test.id};

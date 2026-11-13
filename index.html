@@ -2031,29 +2031,33 @@ async function sdAddFoto(r, fromGallery){
   if(!fromGallery){ inp.capture='environment'; }
   inp.onchange=async()=>{
     const f=inp.files&&inp.files[0]; if(!f) return;
+    // anında yerel önizleme (ağ/CDN beklemeden görünsün)
+    try{ if(r._localUrl) URL.revokeObjectURL(r._localUrl); r._localUrl=URL.createObjectURL(f); }catch(_){ r._localUrl=null; }
     toast('Foto işleniyor…');
+    openSoruDuzenle(r);
     let orig; try{ orig=await compressImage(f); }catch(_){ orig=f; }
     let temiz=null; try{ temiz=await temizleFoto(orig); }catch(_){ temiz=null; }
+    // tek seferlik yeniden denemeli yükleme
+    async function up1(blob,path){ for(let i=0;i<2;i++){ try{ const u=await db.storage.from('yanlis-foto').upload(path,blob,{contentType:'image/jpeg',upsert:true}); if(!u.error) return true; }catch(_){ } await new Promise(s=>setTimeout(s,1200)); } return false; }
     try{
       const base=`${r.materyal_test_id}/${Date.now()}_${r.soru_no}`;
-      const up=await db.storage.from('yanlis-foto').upload(base+'.jpg',orig,{contentType:'image/jpeg',upsert:true});
-      if(up.error) throw up.error;
+      if(!(await up1(orig,base+'.jpg'))) throw new Error('yükleme başarısız');
       const foto_url=db.storage.from('yanlis-foto').getPublicUrl(base+'.jpg').data.publicUrl;
       let temiz_path=null,temiz_url=null;
-      if(temiz){ const tp=base+'_temiz.jpg'; const tu=await db.storage.from('yanlis-foto').upload(tp,temiz,{contentType:'image/jpeg',upsert:true}); if(!tu.error){ temiz_path=tp; temiz_url=db.storage.from('yanlis-foto').getPublicUrl(tp).data.publicUrl; } }
+      if(temiz && await up1(temiz,base+'_temiz.jpg')){ temiz_path=base+'_temiz.jpg'; temiz_url=db.storage.from('yanlis-foto').getPublicUrl(base+'_temiz.jpg').data.publicUrl; }
       const patch={foto_path:base+'.jpg',foto_url,temiz_path,temiz_url,vektor_durum:'bekliyor',vektor_url:null,vektor_path:null,vektor_onayli:false,vektor_hata:null,vektor_uyum:null,vektor_uyum_not:null};
       const uo=await db.from('yanlis_foto').update(patch).eq('id',r.id);
       if(uo.error) throw uo.error;
       Object.assign(r,patch);
       vektorleBaslat([{id:r.id}]);
       toast('Foto eklendi ✓ · vektör oluşturuluyor');
-      openSoruDuzenle(r);
-    }catch(e){ toast('Yüklenemedi: '+((e&&e.message)||e)); }
+      // yerel önizlemeyi koru; sonraki tam yüklemede (restart/tekrar sorgu) uzak URL kullanılır
+    }catch(e){ toast('Yüklenemedi, tekrar dene: '+((e&&e.message)||e)); }
   };
   inp.click();
 }
 function openSoruDuzenle(r){
-  const src=bestFotoUrl(r);
+  const src=r._localUrl||bestFotoUrl(r);
   const dersId=(r._t&&r._t.ders_id)||(r._mat&&r._mat.ders_id);
   const ks=S.konByDers[dersId]||[];
   const konuOpts=`<option value="">— konu seç —</option>`+ks.map(k=>`<option value="${k.id}" ${String(r.konu_id)===String(k.id)?'selected':''}>${esc(k.ad)}</option>`).join('');

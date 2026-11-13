@@ -1,5 +1,5 @@
 /* LGS Takip · Service Worker */
-const CACHE = 'lgs-takip-v4';
+const CACHE = 'lgs-takip-v5';
 const SHELL = ['./', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 

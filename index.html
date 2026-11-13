@@ -1383,13 +1383,18 @@ async function renderOdevTests(odev){
     </div>`;
   body.innerHTML=h;
 
-  // kitap seçenekleri: eşleşen en üstte, gerisi isme göre alfabetik
-  const mats=[...Object.values(S.matById)].filter(m=>(m.tur||'')!=='Deneme Sınavı').sort((a,b)=>{
-    if(matched){ if(a.id===matched.id)return -1; if(b.id===matched.id)return 1; }
-    return a.ad.localeCompare(b.ad,'tr',{numeric:true,sensitivity:'base'});
-  });
+  // kitap seçenekleri: ders ders gruplanmış (deneme sınavları hariç)
+  const mats=[...Object.values(S.matById)].filter(m=>(m.tur||'')!=='Deneme Sınavı');
   const ms=$('#ot_mat'), box=$('#ot_testler');
-  ms.innerHTML=`<option value="">— Seçiniz —</option>`+mats.map(m=>`<option value="${m.id}" ${matched&&m.id===matched.id?'selected':''}>${esc(m.ad)} · ${esc(dersAd(m.ders_id))}</option>`).join('');
+  const byDers=new Map();
+  mats.forEach(m=>{ const k=m.ders_id||0; (byDers.get(k)||byDers.set(k,[]).get(k)).push(m); });
+  const dersSira=[...S.dersler.map(d=>d.id), 0];
+  const grpHtml=dersSira.filter(did=>byDers.has(did)).map(did=>{
+    const list=byDers.get(did).sort((a,b)=>a.ad.localeCompare(b.ad,'tr',{numeric:true,sensitivity:'base'}));
+    const lbl= did? esc(dersAd(did)) : 'Diğer';
+    return `<optgroup label="${lbl}">`+list.map(m=>`<option value="${m.id}" ${matched&&m.id===matched.id?'selected':''}>${esc(m.ad)}</option>`).join('')+`</optgroup>`;
+  }).join('');
+  ms.innerHTML=`<option value="">— Seçiniz —</option>`+grpHtml;
   const linked=new Set(tids);
   const fillTests=async()=>{
     if(!ms.value){ box.innerHTML='<div style="color:var(--ink-3)">Önce kitap seçin.</div>'; return; }

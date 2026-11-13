@@ -1384,7 +1384,7 @@ async function renderOdevTests(odev){
   body.innerHTML=h;
 
   // kitap seçenekleri: eşleşen en üstte, gerisi isme göre alfabetik
-  const mats=[...Object.values(S.matById)].sort((a,b)=>{
+  const mats=[...Object.values(S.matById)].filter(m=>(m.tur||'')!=='Deneme Sınavı').sort((a,b)=>{
     if(matched){ if(a.id===matched.id)return -1; if(b.id===matched.id)return 1; }
     return a.ad.localeCompare(b.ad,'tr',{numeric:true,sensitivity:'base'});
   });

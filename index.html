@@ -1908,7 +1908,7 @@ async function renderTekrar(){
   const el=$('#view-tekrar');
   el.innerHTML=`<div class="sk" style="margin-top:16px"></div>`;
   const [fR, caR] = await Promise.all([
-    db.from('yanlis_foto').select('id,sonuc_id,konu_id,materyal_test_id,soru_no,tip,foto_url,temiz_url,vektor_url,vektor_durum,vektor_uyum,vektor_uyum_not,ogrenildi,materyal_testleri(id,unite,bolum,test_no,materyal_id,materyaller(ad,ders_id))').eq('ogrenildi',false).order('created_at'),
+    db.from('yanlis_foto').select('id,sonuc_id,konu_id,materyal_test_id,soru_no,tip,foto_url,temiz_url,vektor_url,vektor_durum,vektor_uyum,vektor_uyum_not,ogrenildi,materyal_testleri(id,unite,bolum,test_no,ders_id,materyal_id,materyaller(ad,ders_id))').eq('ogrenildi',false).order('created_at'),
     db.from('cevap_anahtari').select('materyal_test_id,soru_no,dogru_cevap')
   ]);
   const rows=(fR.data||[]).filter(r=>r.materyal_testleri);
@@ -2054,7 +2054,8 @@ async function sdAddFoto(r, fromGallery){
 }
 function openSoruDuzenle(r){
   const src=bestFotoUrl(r);
-  const ks=S.konByDers[(r._mat&&r._mat.ders_id)]||[];
+  const dersId=(r._t&&r._t.ders_id)||(r._mat&&r._mat.ders_id);
+  const ks=S.konByDers[dersId]||[];
   const konuOpts=`<option value="">— konu seç —</option>`+ks.map(k=>`<option value="${k.id}" ${String(r.konu_id)===String(k.id)?'selected':''}>${esc(k.ad)}</option>`).join('');
   const t=r._t||{}; const lbl=testLabel({unite:t.unite,bolum:t.bolum,test_no:t.test_no,id:t.id});
   sheet(`<h3 style="margin-top:2px">Soru ${r.soru_no} · ${r.tip==='bos'?'boş':'yanlış'}</h3>

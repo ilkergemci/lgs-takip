@@ -974,7 +974,7 @@ async function saveKitapResult(ctx){
   if(sRes.error){toast('Hata: '+sRes.error.message);$('#k_save').disabled=false;return;}
   const yk=Object.entries(konu).map(([konu_id,adet])=>({sonuc_id:sRes.data.id,konu_id:+konu_id,adet}));
   if(yk.length){ const r=await db.from('yanlis_konular').insert(yk); if(r.error)toast('Konular kaydedilemedi'); }
-  if(fotos.length){ const rows=fotos.map(f=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:f.soru_no,tip:f.tip,secilen:(ctx.answers&&ctx.answers[f.soru_no])||null,foto_path:f.foto_path,foto_url:f.foto_url,temiz_path:f.temiz_path,temiz_url:f.temiz_url})); const r=await db.from('yanlis_foto').insert(rows).select('id'); if(r.error)toast('Fotoğraf kaydı yazılamadı'); else vektorleBaslat(r.data); }
+  if(fotos.length){ const rows=fotos.map(f=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:f.soru_no,tip:f.tip,secilen:(ctx.answers&&ctx.answers[f.soru_no])||null,foto_path:f.foto_path,foto_url:f.foto_url,temiz_path:f.temiz_path,temiz_url:f.temiz_url})); const r=await db.from('yanlis_foto').insert(rows).select('id'); if(r.error)toast('Fotoğraf kaydı yazılamadı'); /* otomatik vektör kapalı */ }
   else if(fotoHata){ const need=ctx._needQs||[]; const rows=need.map(it=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:it.q,tip:it.tip,secilen:(ctx.answers&&ctx.answers[it.q])||null,vektor_durum:'bekliyor'})); if(rows.length){ const r=await db.from('yanlis_foto').insert(rows); if(r.error)toast('Yanlışlar kaydedilemedi'); } }
   await syncOdevDurum(ctx.test.id); // bu testi içeren ödevlerin tümü çözüldüyse yapıldı işaretle
   $('#k_save').disabled=false;
@@ -1456,7 +1456,7 @@ async function saveFromOdev(ctx){
   const sRes=await db.from('sonuclar').insert({odev_id:ctx._odev.id,ders_id:ctx.dersId,materyal_test_id:ctx.test.id,dogru:d,yanlis:y,bos:b,cozum_tarihi:$('#k_date').value||todayISO(),giren_rol:S.role||null}).select('id').single();
   if(sRes.error){toast('Hata: '+sRes.error.message);$('#k_save').disabled=false;return;}
   if(!sRes.error){ const konu=ctx.hasMSK?(ctx.autoKonu||{}):(ctx.manualKonu||{}); const yk=Object.entries(konu).map(([k,a])=>({sonuc_id:sRes.data.id,konu_id:+k,adet:a})); if(yk.length)await db.from('yanlis_konular').insert(yk);
-    if(fotos.length){ const rows=fotos.map(f=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:f.soru_no,tip:f.tip,secilen:(ctx.answers&&ctx.answers[f.soru_no])||null,foto_path:f.foto_path,foto_url:f.foto_url,temiz_path:f.temiz_path,temiz_url:f.temiz_url})); const r=await db.from('yanlis_foto').insert(rows).select('id'); if(r.error)toast('Fotoğraf kaydı yazılamadı'); else vektorleBaslat(r.data); }
+    if(fotos.length){ const rows=fotos.map(f=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:f.soru_no,tip:f.tip,secilen:(ctx.answers&&ctx.answers[f.soru_no])||null,foto_path:f.foto_path,foto_url:f.foto_url,temiz_path:f.temiz_path,temiz_url:f.temiz_url})); const r=await db.from('yanlis_foto').insert(rows).select('id'); if(r.error)toast('Fotoğraf kaydı yazılamadı'); /* otomatik vektör kapalı */ }
     else if(fotoHata){ const need=ctx._needQs||[]; const rows=need.map(it=>({sonuc_id:sRes.data.id,materyal_test_id:ctx.test.id,soru_no:it.q,tip:it.tip,secilen:(ctx.answers&&ctx.answers[it.q])||null,vektor_durum:'bekliyor'})); if(rows.length)await db.from('yanlis_foto').insert(rows); } }
   // Otomatik tescil: ödeve bağlı TÜM testler çözüldüyse ödevi "yapıldı" yap
   const {data:links}=await db.from('odev_test').select('materyal_test_id').eq('odev_id',ctx._odev.id);
@@ -2054,8 +2054,7 @@ async function sdAddFoto(r, fromGallery){
       const uo=await db.from('yanlis_foto').update(patch).eq('id',r.id);
       if(uo.error) throw uo.error;
       Object.assign(r,patch);
-      vektorleBaslat([{id:r.id}]);
-      toast('Foto eklendi ✓ · vektör oluşturuluyor');
+      toast('Foto eklendi ✓');
       // yerel önizlemeyi koru; sonraki tam yüklemede (restart/tekrar sorgu) uzak URL kullanılır
     }catch(e){ toast('Yüklenemedi, tekrar dene: '+((e&&e.message)||e)); }
   };
